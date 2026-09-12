@@ -1,5 +1,6 @@
 # dinospliceru
 
+"dinospliceru" is a video editing tool that combines a variety of features into one for a more efficient workflow. Rather than switching between several separate tools online, users can rely on "dinospliceru" as a single application that keeps their workflow smooth and efficient.
 
 ## "Tiesiog UAB" Team Members
 
@@ -16,9 +17,21 @@
 
 ## Project
 
-### Idea
+### Functionality
 
-"dinospliceru" is a video editing tool that combines a variety of features into one for a more efficient workflow. A selected video can be uploaded, spliced by length or size, cut, compressed, and exported in a chosen file format. Rather than switching between several separate tools online, users can rely on "dinospliceru" as a single application that keeps their workflow smooth and efficient.
+- Uploading selected videos
+
+- Splicing videos by length or size
+
+- Cutting videos
+
+- Exporting videos in a chosen file format
+
+- Setting custom parameters
+
+- Preset saving within an account
+
+- Video queueing
 
 ### Versions
 
