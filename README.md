@@ -1,32 +1,24 @@
 # dinospliceru
 
 
-## "Tiesiog UAB" Members
+## "Tiesiog UAB" Team Members
 
-- **Dinas** "DinasZaranka"
+- **Mykolas** ★ [@laeartes](https://github.com/laeartes)
 
----
+- **Dinas** [@DinasZaranka](https://github.com/DinasZaranka)
 
-- **Mykolas** ★ "laertes"
+- **Žygimantas** [@raubatronas](https://github.com/raubatronas)
 
----
+- **Airidas** [@AiridasM](https://github.com/AiridasM)
 
-- **Žygimantas** "raubatronas"
-
----
-
-- **Airidas** "AiridasM"
-
----
-
-- **Emilijus** "Emilijus-Trinkunas"
+- **Emilijus** [@Emilijus-Trinkunas](https://github.com/emilijus-trinkunas)
 
 
 ## Project
 
 ### Idea
 
-"dinospliceru" is a video editing tool that combines a variety of features into one for a more efficient workflow. A selected video can be uploaded, spliced by length or size, cut, compressed and exported in a chosen file format.
+"dinospliceru" is a video editing tool that combines a variety of features into one for a more efficient workflow. A selected video can be uploaded, spliced by length or size, cut, compressed, and exported in a chosen file format. Rather than switching between several separate tools online, users can rely on "dinospliceru" as a single application that keeps their workflow smooth and efficient.
 
 ### Versions
 
@@ -58,21 +50,17 @@
 
 - Polished product
 
-### Our Goal
-
-We intend for "dinospliceru" to be an application that condenses several video editing tools into one with the intent of having an efficient tool which helps users maintain a comfortable workflow rather than using a variety of different tools available online.
-
 ### Program Functionality
 
--
+WIP
 
 ### Technology Stack
 
--
+WIP
 
 
-## How to run?
+## Running the Program
 
 ```
--
+WIP
 ```
