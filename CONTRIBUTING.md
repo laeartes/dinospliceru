@@ -54,7 +54,6 @@ All branches must be created from `main` and strictly follow the format below in
   * Do not end the message with a period.
   * Keep the summary line under 72 characters.
 * **Atomic Commits:** Each commit should represent a single logical change. Avoid monolithic commits with generic messages like `wip`, `fixes`, or `updates`.
-* **PR Scope:** Do not open a Pull Request for each commit. Develop on your branch with atomic commits, then open **one PR per issue/feature** once the work is complete and ready for review.
 ### Examples:
 * `feature: add basic timeline scrubbing canvas`
 * `bugfix: resolve race condition on video render worker`
