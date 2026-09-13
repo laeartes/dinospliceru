@@ -63,13 +63,16 @@
 
 - Polished product
 
-### Program Functionality
-
-WIP
-
 ### Technology Stack
 
-WIP
+**Frontend**
+- **Core:** React + TypeScript (via Vite)
+- **Styling:** Tailwind CSS
+
+**Backend**
+- **Runtime & Framework:** .NET 8 / ASP.NET Core Web API (C# 12)
+- **Media Processing:** FFmpeg / `FFMpegCore` wrapper
+- **Database:** PostgreSQL 
 
 
 ## Running the Program
