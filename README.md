@@ -70,7 +70,7 @@
 - **Styling:** Tailwind CSS
 
 **Backend**
-- **Runtime & Framework:** .NET 8 / ASP.NET Core Web API (C# 12)
+- **Runtime & Framework:** .NET 10 / ASP.NET Core Web API (C# 14)
 - **Media Processing:** FFmpeg / `FFMpegCore` wrapper
 - **Database:** PostgreSQL 
 
