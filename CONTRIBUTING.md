@@ -110,11 +110,17 @@ All branches must be created from `main` and strictly follow the format below in
   * Run the full test suite before pushing:
     ```bash
     dotnet test
-    ```
+    ```    
 * **Frontend Testing:**
   * Co-locate all unit and component tests directly with their source files using the `.test.tsx` or `.test.ts` extension (e.g., `src/components/TimelineTrack.test.tsx`).
   * Run frontend tests locally:
     ```bash
     npm test
     ```
+* **Test Media and Generated Files:**
+  * Alongside the test projects, the `tests/` directory contains dedicated directories for shared test media and generated files.
+  * Small media fixtures required by automated tests may be stored in `tests/assets/` and committed to the repository.
+  * When local test media, generated output, or temporary files are needed, use `tests/assets/local/`, `tests/output/`, and `tests/tmp/` respectively.
+  * The latter three directories are ignored by Git.
+    
 * **PR Coverage:** Any new business logic, API endpoint or bugfix must include corresponding unit tests covering happy paths and edge cases.
