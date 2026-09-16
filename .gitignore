@@ -1,0 +1,64 @@
+# .NET / ASP.NET Core
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+.[Aa]rtifacts/
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+*.coveragexml
+*.user
+*.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+# Node.js / React / Vite
+node_modules/
+dist/
+dist-ssr/
+coverage/
+.vite/
+*.tsbuildinfo
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+npm-debug.log*
+pnpm-debug.log*
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+
+# Local environment files (example templates remain tracked)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Temporary files
+*.tmp
+*.temp
+
+# Tests
+/tests/assets/local/
+/tests/output/
+/tests/tmp/
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+._*
+Desktop.ini
+ehthumbs.db
+
+# Logs and tool caches
+logs/
+*.log
+.npm/
+.eslintcache
+
+# Editor temporary and backup files
+*~
+*.swp
+*.swo
