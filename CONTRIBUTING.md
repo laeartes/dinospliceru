@@ -112,10 +112,18 @@ All branches must be created from `main` and strictly follow the format below in
     dotnet test
     ```    
 * **Frontend Testing:**
-  * Co-locate all unit and component tests directly with their source files using the `.test.tsx` or `.test.ts` extension (e.g., `src/components/TimelineTrack.test.tsx`).
+  * Place all unit and component tests in the `tests/` directory, mirroring the `src/` folder structure, using the `.test.tsx` or `.test.ts` extension (e.g., `tests/components/TimelineTrack.test.tsx` for `src/components/TimelineTrack.tsx`).
   * Run frontend tests locally:
     ```bash
     npm test
+    ```
+  * Run frontend tests once (non-watch mode, useful for CI):
+    ```bash
+    npm run test:run
+    ```
+  * Optionally, run tests with an interactive browser UI:
+    ```bash
+    npm run test:ui
     ```
 * **Test Media and Generated Files:**
   * Alongside the test projects, the `tests/` directory contains dedicated directories for shared test media and generated files.
