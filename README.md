@@ -75,8 +75,64 @@
 - **Database:** PostgreSQL 
 
 
+## Prerequisites
+
+### Frontend
+
+- **Node.js 24.x (LTS)** — [Download](https://nodejs.org/)
+
+### Backend
+
+- **.NET 10 SDK & ASP.NET Core Runtime** — [Download](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
+- **FFmpeg** — must be installed and available on `PATH`
+
+  | OS      | Installation |
+  |---------|--------------|
+  | Linux   | `sudo apt install ffmpeg` (Debian/Ubuntu), `sudo pacman -S ffmpeg` (Arch) |
+  | macOS   | `brew install ffmpeg` |
+  | Windows | `winget install ffmpeg` or download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to `PATH` |
+
+  Verify after install: `ffmpeg -version`
+
 ## Running the Program
 
+### Frontend
+
+```bash
+# Navigate to the frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run dev server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run tests (watch mode)
+npm test
+
+# Run tests once (non-watch mode, useful for CI)
+npm run test:run
+
+# Lint check
+npm run lint
 ```
-WIP
+
+### Backend
+
+```bash
+# Build all projects
+dotnet build
+
+# Run API server
+dotnet run --project src/DinoSplicer.Api
+
+# Run tests
+dotnet test
+
+# Format check
+dotnet format
 ```
