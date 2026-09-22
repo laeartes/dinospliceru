@@ -72,7 +72,7 @@
 **Backend**
 - **Runtime & Framework:** .NET 10 / ASP.NET Core Web API (C# 14)
 - **Media Processing:** FFmpeg / `FFMpegCore` wrapper
-- **Database:** PostgreSQL 
+- **Database:** PostgreSQL
 
 
 ## Prerequisites
@@ -124,6 +124,9 @@ npm run lint
 ### Backend
 
 ```bash
+# Navigate to the backend directory
+cd backend
+
 # Build all projects
 dotnet build
 
