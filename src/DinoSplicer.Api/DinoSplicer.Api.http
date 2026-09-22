@@ -1,0 +1,6 @@
+@DinoSplicer.Api_HostAddress = http://localhost:5175
+
+GET {{DinoSplicer.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
