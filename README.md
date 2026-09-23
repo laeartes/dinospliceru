@@ -124,8 +124,7 @@ npm run lint
 ### Backend
 
 ```bash
-# Navigate to the backend directory
-cd backend
+# Run these commands from the repository root
 
 # Build all projects
 dotnet build
