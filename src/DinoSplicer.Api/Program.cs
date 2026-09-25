@@ -1,6 +1,15 @@
+using DinoSplicer.Api.Data;
+
 using FFMpegCore;
 
+using Microsoft.EntityFrameworkCore;
+
+
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+// Register the database context and configure it to use PostgreSQL
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Configure FFmpeg binary resolution
 GlobalFFOptions.Configure(options =>
