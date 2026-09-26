@@ -1,5 +1,34 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from 'react'
 
+const ALLOWED_EXTENSIONS = ['.mp4', '.mov', '.webm']
+const ALLOWED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
+const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024
+
+const ACCEPT_STRING = ALLOWED_EXTENSIONS.join(',') + ',' + ALLOWED_MIME_TYPES.join(',')
+
+function getExtension(file: File): string {
+  const dotIndex = file.name.lastIndexOf('.')
+  if (dotIndex === -1) return ''
+  return file.name.slice(dotIndex).toLowerCase()
+}
+
+function validateVideoFile(file: File): string | null {
+  const ext = getExtension(file)
+  if (ext && !ALLOWED_EXTENSIONS.includes(ext)) {
+    return `Invalid file type. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`
+  }
+
+  if (file.type && !ALLOWED_MIME_TYPES.includes(file.type)) {
+    return `Invalid file type. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`
+  }
+
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return `File too large. Maximum size is 500MB`
+  }
+
+  return null
+}
+
 interface VideoUploaderProps {
   onFileSelect?: (file: File) => void
 }
@@ -40,15 +69,27 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
       return
     }
 
+    const validationError = validateVideoFile(files[0])
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     onFileSelect?.(files[0])
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     setError(null)
     const file = e.target.files?.[0]
-    if (file) {
-      onFileSelect?.(file)
+    if (!file) return
+
+    const validationError = validateVideoFile(file)
+    if (validationError) {
+      setError(validationError)
+      return
     }
+
+    onFileSelect?.(file)
   }
 
   function handleBrowseClick() {
@@ -70,8 +111,9 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".mp4,.mov,.webm,video/mp4,video/quicktime,video/webm"
+        accept={ACCEPT_STRING}
         className="hidden"
+        data-testid="file-input"
         multiple={false}
         onChange={handleFileChange}
       />

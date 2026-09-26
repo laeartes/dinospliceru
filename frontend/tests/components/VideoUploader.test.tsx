@@ -63,4 +63,62 @@ describe('VideoUploader', () => {
     expect(onFileSelect).not.toHaveBeenCalled()
     expect(screen.getByText(/only one file can be uploaded at a time/i)).toBeInTheDocument()
   })
+
+  it('rejects a dropped file with invalid extension', () => {
+    const onFileSelect = vi.fn()
+    render(<VideoUploader onFileSelect={onFileSelect} />)
+
+    const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
+    const file = createFile('readme.txt', 'text/plain')
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [file] },
+    })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
+    expect(screen.getByText(/invalid file type/i)).toBeInTheDocument()
+  })
+
+  it('rejects a dropped file with invalid mime type', () => {
+    const onFileSelect = vi.fn()
+    render(<VideoUploader onFileSelect={onFileSelect} />)
+
+    const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
+    const file = createFile('video.mp4', 'application/octet-stream')
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [file] },
+    })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
+    expect(screen.getByText(/invalid file type/i)).toBeInTheDocument()
+  })
+
+  it('rejects a dropped file over the size limit', () => {
+    const onFileSelect = vi.fn()
+    render(<VideoUploader onFileSelect={onFileSelect} />)
+
+    const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
+    const oversized = createFile('large.mp4', 'video/mp4', 500 * 1024 * 1024 + 1)
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [oversized] },
+    })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
+    expect(screen.getByText(/file too large/i)).toBeInTheDocument()
+  })
+
+  it('rejects a file selected via file picker with invalid extension', () => {
+    const onFileSelect = vi.fn()
+    render(<VideoUploader onFileSelect={onFileSelect} />)
+
+    const input = screen.getByTestId('file-input')
+    const file = createFile('data.json', 'application/json')
+
+    fireEvent.change(input, { target: { files: [file] } })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
+    expect(screen.getByText(/invalid file type/i)).toBeInTheDocument()
+  })
 })
