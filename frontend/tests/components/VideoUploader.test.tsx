@@ -1,10 +1,22 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import VideoUploader from '../../src/components/VideoUploader'
+import { formatFileSize } from '../../src/utils/formatFileSize'
 
 function createFile(name: string, type: string, size = 1024): File {
   return new File(['x'.repeat(size)], name, { type })
 }
+
+describe('formatFileSize', () => {
+  it('formats bytes as KB under 1MB', () => {
+    expect(formatFileSize(500 * 1024)).toBe('500KB')
+  })
+
+  it('formats bytes as MB at or above 1MB', () => {
+    expect(formatFileSize(1024 * 1024)).toBe('1.0MB')
+    expect(formatFileSize(50 * 1024 * 1024)).toBe('50.0MB')
+  })
+})
 
 describe('VideoUploader', () => {
   it('renders the dropzone and browse button', () => {
@@ -30,7 +42,7 @@ describe('VideoUploader', () => {
     expect(dropzone.className).not.toContain('bg-teal-50')
   })
 
-  it('calls onFileSelect when a single file is dropped', () => {
+  it('shows file info after dropping a valid single file and does not call onFileSelect', () => {
     const onFileSelect = vi.fn()
     render(<VideoUploader onFileSelect={onFileSelect} />)
 
@@ -41,9 +53,44 @@ describe('VideoUploader', () => {
       dataTransfer: { files: [file] },
     })
 
+    expect(onFileSelect).not.toHaveBeenCalled()
+    expect(screen.getByTestId('file-name')).toHaveTextContent('test.mp4')
+    expect(screen.getByTestId('file-size')).toHaveTextContent('1KB')
+  })
+
+  it('calls onFileSelect when the confirm (Upload) button is clicked', () => {
+    const onFileSelect = vi.fn()
+    render(<VideoUploader onFileSelect={onFileSelect} />)
+
+    const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
+    const file = createFile('test.mp4', 'video/mp4')
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [file] },
+    })
+
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
     expect(onFileSelect).toHaveBeenCalledOnce()
     expect(onFileSelect).toHaveBeenCalledWith(file)
-    expect(screen.queryByText(/only one file/i)).not.toBeInTheDocument()
+  })
+
+  it('returns to dropzone after clicking choose different', () => {
+    render(<VideoUploader />)
+
+    const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
+    const file = createFile('test.mp4', 'video/mp4')
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [file] },
+    })
+
+    expect(screen.getByTestId('file-name')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('choose-different'))
+
+    expect(screen.queryByTestId('file-name')).not.toBeInTheDocument()
+    expect(screen.getByText(/drag & drop your video here/i)).toBeInTheDocument()
   })
 
   it('shows an error when multiple files are dropped and does not call onFileSelect', () => {
