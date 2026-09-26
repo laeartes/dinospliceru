@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest'
 import App from '../src/App'
 
 describe('App', () => {
-  it('renders the get started heading', () => {
+  it('renders the upload video heading', () => {
     render(<App />)
-    expect(screen.getByText(/get started/i)).toBeInTheDocument()
+    expect(screen.getByText(/upload video/i)).toBeInTheDocument()
   })
 })
