@@ -138,3 +138,19 @@ dotnet test
 # Format check
 dotnet format
 ```
+### Database (PostgreSQL)
+
+```bash
+# Run these commands from the repository root
+
+# Start a local PostgreSQL instance (first time, or after removing the container)
+docker run --name dinosplicer-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=dinosplicer -p 5432:5432 -d postgres:18-alpine
+
+# Apply migrations (creates the videos table, etc.)
+dotnet ef database update --project src/DinoSplicer.Api --startup-project src/DinoSplicer.Api
+
+# Add a new migration after changing an entity or DbContext
+dotnet ef migrations add <MigrationName> --project src/DinoSplicer.Api --startup-project src/DinoSplicer.Api
+```
+
+**Note:** all contributors should use `postgres:18-alpine` for local development, to match what the integration tests use
