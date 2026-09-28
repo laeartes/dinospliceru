@@ -33,8 +33,8 @@ public static class FormFileExtensions
             return false;
         }
 
-        string extensions = Path.GetExtension(file.FileName);
-        if (!allowedExtensions.Contains(extensions, StringComparer.OrdinalIgnoreCase))
+        string extension = Path.GetExtension(file.FileName);
+        if (!allowedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
         {
             error = $"The file extension '{extension}' is not allowed. Allowed extensions: {string.Join(", ", allowedExtensions)}.";
             return false;
@@ -42,7 +42,7 @@ public static class FormFileExtensions
 
         if (!allowedContentTypes.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
         {
-            error = $"The content type '{file.ContentType}' is not allowed Allowed types: {string.Join(", ", allowedContentTypes)}"
+            error = $"The content type '{file.ContentType}' is not allowed Allowed types: {string.Join(", ", allowedContentTypes)}";
             return false;
         }
 
