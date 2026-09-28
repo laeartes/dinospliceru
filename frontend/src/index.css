@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+@theme {
+  --color-cyber-cyan: #39c5bb;
+  --color-cyber-cyan-hover: #2ea89f;
+  --color-cyber-pink: #e12885;
+  --color-cyber-pink-hover: #c71f72;
+  --color-cyber-dark: #1e2328;
+  --color-cyber-border: #d1d7de;
+  --color-cyber-bg: #f4f6f8;
+}
