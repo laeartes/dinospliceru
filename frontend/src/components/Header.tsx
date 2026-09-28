@@ -4,9 +4,15 @@ function Header() {
       <div className="mx-auto flex max-w-5xl items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-6 w-2 bg-cyber-cyan" aria-hidden="true" />
-          <span className="text-xl font-bold tracking-tight text-cyber-dark">
-            dinospliceru
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-bold tracking-tight text-cyber-dark">
+              dinospliceru
+            </span>
+            <span className="text-sm text-cyber-pink" aria-hidden="true">✦</span>
+            <span className="hidden sm:inline border border-cyber-border px-2 py-0.5 text-xs font-mono text-slate-500">
+              [ online (｡•̀ᴗ-)✧ ]
+            </span>
+          </div>
         </div>
 
         <nav className="flex items-center gap-3" aria-label="External links">
@@ -29,23 +35,6 @@ function Header() {
               />
             </svg>
             <span>GitHub</span>
-          </a>
-
-          <a
-            href="https://ko-fi.com/laeartes"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Support on Ko-fi"
-            className="flex items-center gap-2 border border-cyber-pink bg-white px-3 py-1.5 text-sm font-medium text-cyber-pink hover:bg-cyber-pink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors"
-          >
-            <svg
-              className="h-4 w-4 fill-current"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.022 5.04c-1.32 1.48-3.78 1.48-5.1 0-1.22-1.37-1.07-3.79.35-4.99 1.41-1.2 3.84-.25 4.4 1.34.56-1.59 2.99-2.54 4.4-1.34 1.42 1.2 1.57 3.62.35 4.99zm8.08-1.52c-.31 1.63-1.66 1.83-2.8 1.77V7.61c.96-.06 2.49-.07 2.8 1.77.16.92.16 2.17 0 3.09z" />
-            </svg>
-            <span>Ko-fi</span>
           </a>
         </nav>
       </div>

@@ -15,12 +15,4 @@ describe('Header', () => {
     expect(githubLink).toHaveAttribute('target', '_blank')
     expect(githubLink).toHaveAttribute('rel', 'noopener noreferrer')
   })
-
-  it('renders Ko-fi link with security attributes', () => {
-    render(<Header />)
-    const kofiLink = screen.getByRole('link', { name: /ko-fi/i })
-    expect(kofiLink).toHaveAttribute('href', 'https://ko-fi.com/laeartes')
-    expect(kofiLink).toHaveAttribute('target', '_blank')
-    expect(kofiLink).toHaveAttribute('rel', 'noopener noreferrer')
-  })
 })

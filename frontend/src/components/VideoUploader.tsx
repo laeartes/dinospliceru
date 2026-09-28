@@ -180,6 +180,14 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
         onChange={handleFileChange}
       />
 
+      <div className="mb-6 flex items-center justify-between border-b border-cyber-border pb-3 text-xs font-mono text-slate-500">
+        <span className="flex items-center gap-1.5 text-cyber-dark">
+          <span className="text-cyber-pink" aria-hidden="true">✦</span>
+          <span>[ video.splicer // uploader ]</span>
+        </span>
+        <span className="text-cyber-pink font-semibold">01 // READY (｡•̀ᴗ-)✧</span>
+      </div>
+
       {selectedFile ? (
         <div className="flex flex-col items-center gap-3" aria-live="polite">
           <svg
@@ -197,11 +205,11 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
             />
           </svg>
 
-          <p className="text-slate-800" data-testid="file-name">
+          <p className="text-slate-800 font-medium" data-testid="file-name">
             {selectedFile.name}
           </p>
-          <p className="text-sm text-slate-500" data-testid="file-size">
-            {formatFileSize(selectedFile.size)}
+          <p className="text-sm text-slate-500 font-mono" data-testid="file-size">
+            {formatFileSize(selectedFile.size)} ✦
           </p>
 
           <div className="mt-2 flex gap-3">
@@ -212,7 +220,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
               data-testid="confirm-upload"
             >
-              Upload
+              Upload ✦
             </button>
             <button
               type="button"
@@ -220,7 +228,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               className="border border-cyber-border px-4 py-2 text-cyber-dark hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
               data-testid="choose-different"
             >
-              Choose different
+              Choose different (• ◡•)
             </button>
           </div>
         </div>
@@ -242,10 +250,10 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               />
             </svg>
 
-            <p className="text-slate-800">
-              Drag & drop your video here
+            <p className="text-slate-800 font-medium">
+              Drag & drop your video here <span className="text-cyber-pink font-mono">(｡•̀ᴗ-)✧</span>
             </p>
-            <p className="text-sm text-slate-500">or</p>
+            <p className="text-sm text-slate-500 font-mono">or</p>
 
             <button
               ref={browseButtonRef}
@@ -253,16 +261,19 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               onClick={handleBrowseClick}
               className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
             >
-              Browse files
+              Browse files ✦
             </button>
 
-            <p className="text-xs text-slate-400">
-              Accepted: .mp4, .mov, .webm &middot; Max size: 500MB
+            <p className="text-xs text-slate-400 font-mono">
+              Accepted: .mp4, .mov, .webm &middot; Max size: 500MB (´｡• ᵕ •｡`)
             </p>
           </div>
 
           {error && (
-            <p className="mt-3 text-sm text-red-600" role="alert" aria-live="assertive">{error}</p>
+            <p className="mt-3 text-sm text-red-600 font-mono" role="alert" aria-live="assertive">
+              <span className="mr-1" aria-hidden="true">(；´Д｀)</span>
+              {error}
+            </p>
           )}
         </>
       )}

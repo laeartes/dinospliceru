@@ -13,6 +13,8 @@ function Footer() {
         <div className="flex flex-col items-center gap-2 md:items-start">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-cyber-dark">Tiesiog UAB</span>
+            <span className="text-cyber-pink" aria-hidden="true">★</span>
+            <span className="text-xs font-mono text-slate-500">(◕‿◕✿)</span>
             <span className="text-slate-400">&middot;</span>
             <span className="text-xs text-slate-500">team members</span>
           </div>
@@ -41,6 +43,7 @@ function Footer() {
             aria-label="Support on Ko-fi"
             className="flex items-center gap-2 border border-cyber-pink bg-white px-3 py-1.5 text-xs font-medium text-cyber-pink hover:bg-cyber-pink hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors"
           >
+            <span className="text-cyber-pink group-hover:text-white" aria-hidden="true">♡</span>
             <span>Support on Ko-fi</span>
           </a>
         </div>
