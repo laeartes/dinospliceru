@@ -154,15 +154,15 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
   }
 
   const borderClass = isDragging
-    ? 'border-teal-500 bg-teal-50'
-    : 'border-slate-300 bg-white/80 backdrop-blur-sm'
+    ? 'border-cyber-cyan bg-cyan-50/50'
+    : 'border-cyber-border bg-white'
 
   return (
     <div
       role="region"
       aria-label="Video uploader"
       tabIndex={selectedFile ? -1 : 0}
-      className={`border-2 border-solid ${borderClass} relative p-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500`}
+      className={`border-2 border-solid ${borderClass} relative p-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan`}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -183,7 +183,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
       {selectedFile ? (
         <div className="flex flex-col items-center gap-3" aria-live="polite">
           <svg
-            className="h-10 w-10 text-teal-500"
+            className="h-10 w-10 text-cyber-cyan"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -209,7 +209,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               ref={confirmButtonRef}
               type="button"
               onClick={handleConfirm}
-              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 transition-colors"
+              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
               data-testid="confirm-upload"
             >
               Upload
@@ -217,7 +217,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
             <button
               type="button"
               onClick={handleChooseDifferent}
-              className="border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
+              className="border border-cyber-border px-4 py-2 text-cyber-dark hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
               data-testid="choose-different"
             >
               Choose different
@@ -228,7 +228,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
         <>
           <div className="flex flex-col items-center gap-3">
             <svg
-              className="h-10 w-10 text-teal-500"
+              className="h-10 w-10 text-cyber-cyan"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -251,7 +251,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               ref={browseButtonRef}
               type="button"
               onClick={handleBrowseClick}
-              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 transition-colors"
+              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
             >
               Browse files
             </button>
