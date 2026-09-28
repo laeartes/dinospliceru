@@ -196,4 +196,21 @@ describe('VideoUploader', () => {
     expect(onFileSelect).not.toHaveBeenCalled()
     expect(screen.getByText(/file has no extension/i)).toBeInTheDocument()
   })
+
+  it('allows selecting the same file again after clicking choose different', () => {
+    render(<VideoUploader />)
+
+    const input = screen.getByTestId<HTMLInputElement>('file-input')
+    const file = createFile('clip.mp4', 'video/mp4')
+
+    fireEvent.change(input, { target: { files: [file] } })
+    expect(screen.getByTestId('file-name')).toHaveTextContent('clip.mp4')
+
+    fireEvent.click(screen.getByTestId('choose-different'))
+    expect(screen.queryByTestId('file-name')).not.toBeInTheDocument()
+    expect(input.value).toBe('')
+
+    fireEvent.change(input, { target: { files: [file] } })
+    expect(screen.getByTestId('file-name')).toHaveTextContent('clip.mp4')
+  })
 })

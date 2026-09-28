@@ -92,25 +92,40 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
     const validationError = validateVideoFile(file)
     if (validationError) {
       setError(validationError)
+      if (inputRef.current) {
+        inputRef.current.value = ''
+      }
       return
     }
 
     setSelectedFile(file)
+    if (inputRef.current) {
+      inputRef.current.value = ''
+    }
   }
 
   function handleBrowseClick() {
+    if (inputRef.current) {
+      inputRef.current.value = ''
+    }
     inputRef.current?.click()
   }
 
   function handleConfirm() {
     if (selectedFile) {
       onFileSelect?.(selectedFile)
+      if (inputRef.current) {
+        inputRef.current.value = ''
+      }
     }
   }
 
   function handleChooseDifferent() {
     setSelectedFile(null)
     setError(null)
+    if (inputRef.current) {
+      inputRef.current.value = ''
+    }
   }
 
   const borderClass = isDragging
@@ -129,7 +144,8 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
         ref={inputRef}
         type="file"
         accept={ACCEPT_STRING}
-        className="hidden"
+        className="sr-only"
+        tabIndex={-1}
         data-testid="file-input"
         multiple={false}
         onChange={handleFileChange}
