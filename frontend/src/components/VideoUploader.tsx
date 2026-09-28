@@ -15,7 +15,11 @@ function getExtension(file: File): string {
 
 function validateVideoFile(file: File): string | null {
   const ext = getExtension(file)
-  if (ext && !ALLOWED_EXTENSIONS.includes(ext)) {
+  if (!ext) {
+    return `File has no extension. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`
+  }
+
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
     return `Invalid file type. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`
   }
 

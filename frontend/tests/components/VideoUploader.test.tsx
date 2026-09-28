@@ -168,4 +168,32 @@ describe('VideoUploader', () => {
     expect(onFileSelect).not.toHaveBeenCalled()
     expect(screen.getByText(/invalid file type/i)).toBeInTheDocument()
   })
+
+  it('rejects a dropped file without any file extension', () => {
+    const onFileSelect = vi.fn()
+    render(<VideoUploader onFileSelect={onFileSelect} />)
+
+    const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
+    const file = createFile('videofile', 'video/mp4')
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [file] },
+    })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
+    expect(screen.getByText(/file has no extension/i)).toBeInTheDocument()
+  })
+
+  it('rejects a file selected via file picker without any file extension', () => {
+    const onFileSelect = vi.fn()
+    render(<VideoUploader onFileSelect={onFileSelect} />)
+
+    const input = screen.getByTestId('file-input')
+    const file = createFile('videofile', 'video/mp4')
+
+    fireEvent.change(input, { target: { files: [file] } })
+
+    expect(onFileSelect).not.toHaveBeenCalled()
+    expect(screen.getByText(/file has no extension/i)).toBeInTheDocument()
+  })
 })
