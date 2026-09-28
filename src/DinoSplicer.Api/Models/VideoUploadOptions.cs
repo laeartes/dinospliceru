@@ -2,7 +2,7 @@ namespace DinoSplicer.Api.Models;
 
 public class VideoUploadOptions
 {
-    public const string SectionName = "VideoUpload"
+    public const string SectionName = "VideoUpload";
 
     public string StoragePath {get; set;} = "storage";
 
