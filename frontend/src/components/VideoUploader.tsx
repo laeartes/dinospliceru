@@ -1,4 +1,4 @@
-import { useState, useRef, type DragEvent, type ChangeEvent } from 'react'
+import { useState, useRef, useEffect, type DragEvent, type ChangeEvent, type KeyboardEvent } from 'react'
 import { formatFileSize } from '../utils/formatFileSize'
 
 const ALLOWED_EXTENSIONS = ['.mp4', '.mov', '.webm']
@@ -43,6 +43,14 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
   const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const confirmButtonRef = useRef<HTMLButtonElement>(null)
+  const browseButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (selectedFile) {
+      confirmButtonRef.current?.focus()
+    }
+  }, [selectedFile])
 
   function handleDragOver(e: DragEvent<HTMLDivElement>) {
     e.preventDefault()
@@ -126,6 +134,23 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
     if (inputRef.current) {
       inputRef.current.value = ''
     }
+    setTimeout(() => {
+      browseButtonRef.current?.focus()
+    }, 0)
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (!selectedFile) {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+        e.preventDefault()
+        handleBrowseClick()
+      }
+    } else {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        handleChooseDifferent()
+      }
+    }
   }
 
   const borderClass = isDragging
@@ -134,11 +159,15 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
 
   return (
     <div
-      className={`border-2 border-solid ${borderClass} relative p-8 text-center transition-colors`}
+      role="region"
+      aria-label="Video uploader"
+      tabIndex={selectedFile ? -1 : 0}
+      className={`border-2 border-solid ${borderClass} relative p-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500`}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onKeyDown={handleKeyDown}
     >
       <input
         ref={inputRef}
@@ -152,13 +181,14 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
       />
 
       {selectedFile ? (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3" aria-live="polite">
           <svg
             className="h-10 w-10 text-teal-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={1.5}
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -176,9 +206,10 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
 
           <div className="mt-2 flex gap-3">
             <button
+              ref={confirmButtonRef}
               type="button"
               onClick={handleConfirm}
-              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 transition-colors"
+              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 transition-colors"
               data-testid="confirm-upload"
             >
               Upload
@@ -186,7 +217,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
             <button
               type="button"
               onClick={handleChooseDifferent}
-              className="border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-100 transition-colors"
+              className="border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
               data-testid="choose-different"
             >
               Choose different
@@ -202,6 +233,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={1.5}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -216,9 +248,10 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
             <p className="text-sm text-slate-500">or</p>
 
             <button
+              ref={browseButtonRef}
               type="button"
               onClick={handleBrowseClick}
-              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 transition-colors"
+              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 transition-colors"
             >
               Browse files
             </button>
@@ -229,7 +262,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
           </div>
 
           {error && (
-            <p className="mt-3 text-sm text-red-600">{error}</p>
+            <p className="mt-3 text-sm text-red-600" role="alert" aria-live="assertive">{error}</p>
           )}
         </>
       )}

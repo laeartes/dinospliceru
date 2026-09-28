@@ -213,4 +213,46 @@ describe('VideoUploader', () => {
     fireEvent.change(input, { target: { files: [file] } })
     expect(screen.getByTestId('file-name')).toHaveTextContent('clip.mp4')
   })
+
+  it('triggers file picker click when Enter or Space is pressed on the dropzone', () => {
+    render(<VideoUploader />)
+
+    const dropzone = screen.getByRole('region', { name: /video uploader/i })
+    const input = screen.getByTestId('file-input')
+    const clickSpy = vi.spyOn(input, 'click')
+
+    fireEvent.keyDown(dropzone, { key: 'Enter' })
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+
+    fireEvent.keyDown(dropzone, { key: ' ' })
+    expect(clickSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('focuses the upload button when a file is selected', () => {
+    render(<VideoUploader />)
+
+    const input = screen.getByTestId('file-input')
+    const file = createFile('test.mp4', 'video/mp4')
+
+    fireEvent.change(input, { target: { files: [file] } })
+
+    const uploadButton = screen.getByTestId('confirm-upload')
+    expect(document.activeElement).toBe(uploadButton)
+  })
+
+  it('clears selection when Escape key is pressed', () => {
+    render(<VideoUploader />)
+
+    const input = screen.getByTestId('file-input')
+    const file = createFile('test.mp4', 'video/mp4')
+
+    fireEvent.change(input, { target: { files: [file] } })
+    expect(screen.getByTestId('file-name')).toBeInTheDocument()
+
+    const dropzone = screen.getByRole('region', { name: /video uploader/i })
+    fireEvent.keyDown(dropzone, { key: 'Escape' })
+
+    expect(screen.queryByTestId('file-name')).not.toBeInTheDocument()
+    expect(screen.getByText(/drag & drop your video here/i)).toBeInTheDocument()
+  })
 })
