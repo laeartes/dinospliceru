@@ -32,7 +32,7 @@ public class VideoController(
             int limitStatusCode = ex is BadHttpRequestException badRequest
                 ? badRequest.StatusCode
                 : StatusCodes.Status413PayloadTooLarge;
-            
+
             return Problem(
                 title: "Upload rejected",
                 detail: $"The request is too large or malformed. Maximum file size is {_options.MaxFileSizeBytes} bytes.",
@@ -58,7 +58,7 @@ public class VideoController(
                 out VideoFileError reason,
                 out string? error
         ))
-        
+
         {
             int statusCode = reason switch
             {
