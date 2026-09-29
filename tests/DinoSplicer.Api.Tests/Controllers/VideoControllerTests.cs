@@ -34,14 +34,14 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
     }
 
     [Fact]
-    public async Task Upload_FileOverMaxSize_Returns400()
+    public async Task Upload_FileOverMaxSize_Returns413()
     {
         HttpClient client = factory.CreateClient();
         int oversized = (int)VideoApiFactory.TestMaxFileSizeBytes + 1;
 
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload(("big.mp4", "video/mp4", oversized)));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
         (await response.Content.ReadAsStringAsync()).Should().Contain("maximum allowed size");
     }
 
@@ -49,13 +49,13 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
     [InlineData("notes.txt", "text/plain")]
     [InlineData("clip.avi", "video/x-msvideo")]
     [InlineData("clip.mp4", "text/plain")]
-    public async Task Upload_InvalidExtensionOrContentType_Returns400(string fileName, string contentType)
+    public async Task Upload_InvalidExtensionOrContentType_Returns415(string fileName, string contentType)
     {
         HttpClient client = factory.CreateClient();
 
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload((fileName, contentType, 1024)));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
     }
 
     [Fact]
