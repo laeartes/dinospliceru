@@ -25,7 +25,7 @@ public class VideoController(
         IFormCollection form;
         try
         {
-             form = await Request.ReadFormAsync(cancellationToken);
+            form = await Request.ReadFormAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is InvalidDataException or BadHttpRequestException)
         {
@@ -74,7 +74,7 @@ public class VideoController(
         try
         {
             await using (Stream source = file.OpenReadStream())
-            await using (FileStream destination = new (
+            await using (FileStream destination = new(
                 video.StoragePath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true
             ))
 
