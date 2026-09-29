@@ -3,7 +3,7 @@ function Header() {
     <header className="w-full border-b border-cyber-border bg-white px-6 py-4">
       <div className="mx-auto flex max-w-5xl items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-6 w-2 bg-cyber-cyan" aria-hidden="true" />
+          <div className="h-6 w-2 bg-cyber-teal" aria-hidden="true" />
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold tracking-tight text-cyber-dark">
               dinospliceru
@@ -21,7 +21,7 @@ function Header() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub repository"
-            className="flex items-center gap-2 border border-cyber-border bg-white px-3 py-1.5 text-sm font-medium text-cyber-dark hover:border-cyber-cyan hover:text-cyber-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors"
+            className="flex items-center gap-2 border border-cyber-border bg-white px-3 py-1.5 text-sm font-medium text-cyber-dark hover:border-cyber-teal hover:text-cyber-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal transition-colors"
           >
             <svg
               className="h-4 w-4 fill-current"

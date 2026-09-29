@@ -217,7 +217,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               ref={confirmButtonRef}
               type="button"
               onClick={handleConfirm}
-              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
+              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
               data-testid="confirm-upload"
             >
               Upload ✦
@@ -225,7 +225,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
             <button
               type="button"
               onClick={handleChooseDifferent}
-              className="border border-cyber-border px-4 py-2 text-cyber-dark hover:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
+              className="border border-cyber-border px-4 py-2 text-cyber-dark hover:border-cyber-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
               data-testid="choose-different"
             >
               Choose different (• ◡•)
@@ -259,7 +259,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               ref={browseButtonRef}
               type="button"
               onClick={handleBrowseClick}
-              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
+              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
             >
               Browse files ✦
             </button>

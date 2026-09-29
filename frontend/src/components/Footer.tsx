@@ -26,7 +26,7 @@ function Footer() {
                   href={member.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="border border-cyber-border px-2 py-0.5 text-xs text-slate-700 hover:border-cyber-cyan hover:text-cyber-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors"
+                  className="border border-cyber-border px-2 py-0.5 text-xs text-cyber-dark hover:border-cyber-teal hover:text-cyber-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal transition-colors"
                 >
                   {member.name}
                 </a>
