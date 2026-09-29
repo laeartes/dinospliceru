@@ -81,13 +81,14 @@ public class VideoController(
             Status = VideoStatus.Uploaded,
         };
         video.FileName = $"{video.Id}{Path.GetExtension(file.FileName).ToLowerInvariant()}";
-        video.StoragePath = Path.Combine(storageDirectory, video.FileName);
+        video.StoragePath = video.FileName;
+        string fullPath = Path.Combine(storageDirectory, video.StoragePath);
 
         try
         {
             await using (Stream source = file.OpenReadStream())
             await using (FileStream destination = new(
-                video.StoragePath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true
+                fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true
             ))
 
             {
@@ -99,7 +100,7 @@ public class VideoController(
         }
         catch
         {
-            System.IO.File.Delete(video.StoragePath);
+            System.IO.File.Delete(fullPath);
             throw;
         }
 
