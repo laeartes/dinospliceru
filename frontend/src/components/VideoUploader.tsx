@@ -154,15 +154,15 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
   }
 
   const borderClass = isDragging
-    ? 'border-teal-500 bg-teal-50'
-    : 'border-slate-300 bg-white/80 backdrop-blur-sm'
+    ? 'border-cyber-cyan bg-cyan-50/50'
+    : 'border-cyber-border bg-white'
 
   return (
     <div
       role="region"
       aria-label="Video uploader"
       tabIndex={selectedFile ? -1 : 0}
-      className={`border-2 border-solid ${borderClass} relative p-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500`}
+      className={`border-2 border-solid ${borderClass} relative p-8 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan`}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -180,10 +180,18 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
         onChange={handleFileChange}
       />
 
+      <div className="mb-6 flex items-center justify-between border-b border-cyber-border pb-3 text-xs font-mono text-slate-500">
+        <span className="flex items-center gap-1.5 text-cyber-dark">
+          <span className="text-cyber-pink" aria-hidden="true">✦</span>
+          <span>[ video.splicer // uploader ]</span>
+        </span>
+        <span className="text-cyber-pink font-semibold">01 // READY (｡•̀ᴗ-)✧</span>
+      </div>
+
       {selectedFile ? (
         <div className="flex flex-col items-center gap-3" aria-live="polite">
           <svg
-            className="h-10 w-10 text-teal-500"
+            className="h-10 w-10 text-cyber-cyan"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -197,11 +205,11 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
             />
           </svg>
 
-          <p className="text-slate-800" data-testid="file-name">
+          <p className="text-slate-800 font-medium" data-testid="file-name">
             {selectedFile.name}
           </p>
-          <p className="text-sm text-slate-500" data-testid="file-size">
-            {formatFileSize(selectedFile.size)}
+          <p className="text-sm text-slate-500 font-mono" data-testid="file-size">
+            {formatFileSize(selectedFile.size)} ✦
           </p>
 
           <div className="mt-2 flex gap-3">
@@ -209,18 +217,18 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               ref={confirmButtonRef}
               type="button"
               onClick={handleConfirm}
-              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 transition-colors"
+              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
               data-testid="confirm-upload"
             >
-              Upload
+              Upload ✦
             </button>
             <button
               type="button"
               onClick={handleChooseDifferent}
-              className="border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
+              className="border border-cyber-border px-4 py-2 text-cyber-dark hover:border-cyber-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 transition-colors"
               data-testid="choose-different"
             >
-              Choose different
+              Choose different (• ◡•)
             </button>
           </div>
         </div>
@@ -228,7 +236,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
         <>
           <div className="flex flex-col items-center gap-3">
             <svg
-              className="h-10 w-10 text-teal-500"
+              className="h-10 w-10 text-cyber-cyan"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -242,27 +250,30 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
               />
             </svg>
 
-            <p className="text-slate-800">
-              Drag & drop your video here
+            <p className="text-slate-800 font-medium">
+              Drag & drop your video here <span className="text-cyber-pink font-mono">(｡•̀ᴗ-)✧</span>
             </p>
-            <p className="text-sm text-slate-500">or</p>
+            <p className="text-sm text-slate-500 font-mono">or</p>
 
             <button
               ref={browseButtonRef}
               type="button"
               onClick={handleBrowseClick}
-              className="bg-teal-500 px-4 py-2 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 transition-colors"
+              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
             >
-              Browse files
+              Browse files ✦
             </button>
 
-            <p className="text-xs text-slate-400">
-              Accepted: .mp4, .mov, .webm &middot; Max size: 500MB
+            <p className="text-xs text-slate-400 font-mono">
+              Accepted: .mp4, .mov, .webm &middot; Max size: 500MB (´｡• ᵕ •｡`)
             </p>
           </div>
 
           {error && (
-            <p className="mt-3 text-sm text-red-600" role="alert" aria-live="assertive">{error}</p>
+            <p className="mt-3 text-sm text-red-600 font-mono" role="alert" aria-live="assertive">
+              <span className="mr-1" aria-hidden="true">(；´Д｀)</span>
+              {error}
+            </p>
           )}
         </>
       )}

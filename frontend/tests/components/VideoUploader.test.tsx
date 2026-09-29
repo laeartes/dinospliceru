@@ -34,12 +34,10 @@ describe('VideoUploader', () => {
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
 
     fireEvent.dragEnter(dropzone)
-    expect(dropzone.className).toContain('border-teal-500')
-    expect(dropzone.className).toContain('bg-teal-50')
+    expect(dropzone.className).toContain('border-cyber-cyan')
 
     fireEvent.dragLeave(dropzone)
-    expect(dropzone.className).not.toContain('border-teal-500')
-    expect(dropzone.className).not.toContain('bg-teal-50')
+    expect(dropzone.className).not.toContain('border-cyber-cyan')
   })
 
   it('shows file info after dropping a valid single file and does not call onFileSelect', () => {
