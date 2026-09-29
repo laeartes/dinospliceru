@@ -1,4 +1,5 @@
 using DinoSplicer.Api.Extensions;
+using DinoSplicer.Api.Models;
 
 using FluentAssertions;
 
@@ -22,9 +23,10 @@ public class FormFileExtensionsTests
     {
         IFormFile file = CreateFile(fileName, contentType, 500);
 
-        bool isValid = file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out string? error);
+        bool isValid = file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out VideoFileError reason, out string? error);
 
         isValid.Should().BeTrue();
+        reason.Should().Be(VideoFileError.None);
         error.Should().BeNull();
     }
 
@@ -33,7 +35,7 @@ public class FormFileExtensionsTests
     {
         IFormFile file = CreateFile("clip.mp4", "video/mp4", MaxSizeBytes);
 
-        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out _).Should().BeTrue();
+        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out _, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -41,9 +43,10 @@ public class FormFileExtensionsTests
     {
         IFormFile file = CreateFile("clip.mp4", "video/mp4", MaxSizeBytes + 1);
 
-        bool isValid = file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out string? error);
+        bool isValid = file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out VideoFileError reason, out string? error);
 
         isValid.Should().BeFalse();
+        reason.Should().Be(VideoFileError.TooLarge);
         error.Should().Contain("maximum allowed size");
     }
 
@@ -52,7 +55,8 @@ public class FormFileExtensionsTests
     {
         IFormFile file = CreateFile("clip.mp4", "video/mp4", 0);
 
-        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out string? error).Should().BeFalse();
+        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out VideoFileError reason, out string? error).Should().BeFalse();
+        reason.Should().Be(VideoFileError.Empty);
         error.Should().Contain("empty");
     }
 
@@ -64,7 +68,8 @@ public class FormFileExtensionsTests
     {
         IFormFile file = CreateFile(fileName, "video/mp4", 500);
 
-        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out string? error).Should().BeFalse();
+        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out VideoFileError reason, out string? error).Should().BeFalse();
+        reason.Should().Be(VideoFileError.ExtensionNotAllowed);
         error.Should().Contain("extension");
     }
 
@@ -73,7 +78,8 @@ public class FormFileExtensionsTests
     {
         IFormFile file = CreateFile("clip.mp4", "text/plain", 500);
 
-        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out string? error).Should().BeFalse();
+        file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out VideoFileError reason, out string? error).Should().BeFalse();
+        reason.Should().Be(VideoFileError.ContentTypeNotAllowed);
         error.Should().Contain("content type");
     }
 

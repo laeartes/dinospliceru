@@ -29,10 +29,14 @@ public class VideoController(
         }
         catch (Exception ex) when (ex is InvalidDataException or BadHttpRequestException)
         {
+            int limitStatusCode = ex is BadHttpRequestException badRequest
+                ? badRequest.StatusCode
+                : StatusCodes.Status413PayloadTooLarge;
+            
             return Problem(
                 title: "Upload rejected",
                 detail: $"The request is too large or malformed. Maximum file size is {_options.MaxFileSizeBytes} bytes.",
-                statusCode: StatusCodes.Status400BadRequest
+                statusCode: limitStatusCode
             );
         }
 
@@ -51,11 +55,19 @@ public class VideoController(
                 _options.AllowedExtensions,
                 _options.AllowedContentTypes,
                 _options.MaxFileSizeBytes,
+                out VideoFileError reason,
                 out string? error
         ))
-
+        
         {
-            return Problem(title: "Invalid video file", detail: error, statusCode: StatusCodes.Status400BadRequest);
+            int statusCode = reason switch
+            {
+                VideoFileError.TooLarge => StatusCodes.Status413PayloadTooLarge,
+                VideoFileError.ExtensionNotAllowed or VideoFileError.ContentTypeNotAllowed => StatusCodes.Status415UnsupportedMediaType,
+                _ => StatusCodes.Status400BadRequest,
+            };
+
+            return Problem(title: "Invalid video file", detail: error, statusCode: statusCode);
         }
 
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
