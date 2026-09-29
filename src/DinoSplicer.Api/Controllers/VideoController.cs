@@ -106,4 +106,61 @@ public class VideoController(
         VideoUploadResponse response = new(video.Id, video.OriginalFileName, video.SizeBytes, video.Status.ToString());
         return Created($"/api/videos/{video.Id}", response);
     }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<VideoResponse>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        Video? video = await db.Videos.FindAsync([id], cancellationToken);
+        if (video is null)
+        {
+            return VideoNotFound(id);
+        }
+
+        return VideoResponse.FromVideo(video);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        Video? video = await db.Videos.FindAsync([id], cancellationToken);
+        if (video is null)
+        {
+            return VideoNotFound(id);
+        }
+
+        // FFmpeg may have the file open while processing, so deleting now could fail or break the job
+        if (video.Status == VideoStatus.Processing)
+        {
+            return Problem(
+                title: "Video is being processed",
+                detail: "The video cannot be deleted while it is being processed. Try again once processing has finished.",
+                statusCode: StatusCodes.Status409Conflict
+            );
+        }
+
+        // Remove the DB row first: if the file delete then fails we are left with an orphan file,
+        // which is harmless, instead of a row pointing at a file that no longer exists
+        db.Videos.Remove(video);
+        await db.SaveChangesAsync(cancellationToken);
+
+        // Same path as built in Upload, keep the two in sync
+        string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
+        string fullPath = Path.Combine(storageDirectory, video.FileName);
+
+        if (System.IO.File.Exists(fullPath))
+        {
+            System.IO.File.Delete(fullPath);
+        }
+
+        return NoContent();
+    }
+
+    private ObjectResult VideoNotFound(Guid id)
+    {
+        return Problem(
+            title: "Video not found",
+            detail: $"No video with id '{id}' exists.",
+            statusCode: StatusCodes.Status404NotFound
+        );
+    }
 }
