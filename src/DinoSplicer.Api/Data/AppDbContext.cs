@@ -35,10 +35,6 @@ public class AppDbContext : DbContext
             entity.Property(v => v.SizeBytes)
                 .IsRequired();
 
-            entity.Property(v => v.StoragePath)
-                .IsRequired()
-                .HasMaxLength(500);
-
             entity.Property(v => v.Status)
                 .IsRequired()
                 .HasConversion<string>()

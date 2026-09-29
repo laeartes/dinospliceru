@@ -81,8 +81,7 @@ public class VideoController(
             Status = VideoStatus.Uploaded,
         };
         video.FileName = $"{video.Id}{Path.GetExtension(file.FileName).ToLowerInvariant()}";
-        video.StoragePath = video.FileName;
-        string fullPath = Path.Combine(storageDirectory, video.StoragePath);
+        string fullPath = Path.Combine(storageDirectory, video.FileName);
 
         try
         {

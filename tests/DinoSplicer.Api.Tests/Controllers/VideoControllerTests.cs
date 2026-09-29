@@ -99,10 +99,8 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         video.ContentType.Should().Be("video/webm");
         video.SizeBytes.Should().Be(2048);
         video.Status.Should().Be(VideoStatus.Uploaded);
-        video.StoragePath.Should().Be($"{body.Id}.webm");
-        Path.IsPathRooted(video.StoragePath).Should().BeFalse();
 
-        string fullPath = Path.Combine(factory.StorageDirectory, video.StoragePath);
+        string fullPath = Path.Combine(factory.StorageDirectory, video.FileName);
         File.Exists(fullPath).Should().BeTrue();
         new FileInfo(fullPath).Length.Should().Be(2048);
     }
