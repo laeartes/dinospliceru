@@ -25,7 +25,7 @@ public class FormFileExtensionsTests
         bool isValid = file.IsValidVideoFile(AllowedExtensions, AllowedContentTypes, MaxSizeBytes, out string? error);
 
         isValid.Should().BeTrue();
-        error.Should().BeNull(); 
+        error.Should().BeNull();
     }
 
     [Fact]
