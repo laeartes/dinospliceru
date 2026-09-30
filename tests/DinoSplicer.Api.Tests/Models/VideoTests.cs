@@ -22,7 +22,6 @@ public class VideoTests
         OriginalFileName = "my vacation video.mp4",
         ContentType = "video/mp4",
         SizeBytes = 10_485_760,
-        StoragePath = "/storage/videos/abc123.mp4",
         Status = VideoStatus.Uploaded
     };
 
@@ -73,7 +72,6 @@ public class VideoTests
             FileName = "a.mp4",
             OriginalFileName = "a.mp4",
             ContentType = "video/mp4",
-            StoragePath = "/x"
         };
 
         video.Status.Should().Be(VideoStatus.Uploaded);

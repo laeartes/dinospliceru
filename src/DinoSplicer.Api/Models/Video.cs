@@ -24,10 +24,6 @@ public class Video
     public double? DurationSeconds { get; set; }
 
     [Required]
-    [MaxLength(500)]
-    public string StoragePath { get; set; } = string.Empty;
-
-    [Required]
     public VideoStatus Status { get; set; } = VideoStatus.Uploaded;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
