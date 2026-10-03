@@ -15,6 +15,7 @@ namespace DinoSplicer.Api.Tests.Controllers;
 public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<VideoApiFactory>
 {
     private const string UploadUrl = "/api/videos";
+    private const int SeededFileSizeBytes = 1024;
 
     [Fact]
     public async Task Upload_ValidFIle_Returns201WithVideoRecord()
@@ -105,6 +106,95 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         new FileInfo(fullPath).Length.Should().Be(2048);
     }
 
+    [Fact]
+    public async Task GetById_ExistingId_Returns200WithVideo()
+    {
+        Video video = await SeedVideoAsync();
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        VideoResponse? body = await response.Content.ReadFromJsonAsync<VideoResponse>();
+        body.Should().NotBeNull();
+        body!.Id.Should().Be(video.Id);
+        body.FileName.Should().Be(video.OriginalFileName);
+        body.ContentType.Should().Be(video.ContentType);
+        body.SizeBytes.Should().Be(video.SizeBytes);
+        body.DurationSeconds.Should().Be(video.DurationSeconds);
+        body.Status.Should().Be(nameof(VideoStatus.Uploaded));
+        // Postgres stores microseconds, DateTime has 100ns ticks, so an exact match can fail
+        body.CreatedAt.Should().BeCloseTo(video.CreatedAt, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task GetById_MissingId_Returns404()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync(VideoUrl(Guid.NewGuid()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetById_MalformedId_Returns404()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/api/videos/not-a-guid");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Delete_ExistingId_Returns204AndRemovesRowAndFile()
+    {
+        Video video = await SeedVideoAsync();
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeFalse();
+        File.Exists(GetFilePath(video)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Delete_MissingId_Returns404()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(Guid.NewGuid()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Delete_FileAlreadyMissingFromDisk_Returns204AndRemovesRow()
+    {
+        Video video = await SeedVideoAsync(createFile: false);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Delete_VideoIsProcessing_Returns409AndKeepsRowAndFile()
+    {
+        Video video = await SeedVideoAsync(VideoStatus.Processing);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
+        File.Exists(GetFilePath(video)).Should().BeTrue();
+    }
+
     private static MultipartFormDataContent CreateUpload(params (string FileName, string ContentType, int SizeBytes)[] files)
     {
         MultipartFormDataContent content = new();
@@ -116,5 +206,49 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         }
 
         return content;
+    }
+
+    private static string VideoUrl(Guid id)
+    {
+        return $"/api/videos/{id}";
+    }
+
+    private string GetFilePath(Video video)
+    {
+        return Path.Combine(factory.StorageDirectory, video.FileName);
+    }
+
+    // Inserts the row directly instead of going through POST, so these tests don't depend on upload
+    private async Task<Video> SeedVideoAsync(VideoStatus status = VideoStatus.Uploaded, bool createFile = true)
+    {
+        Video video = new()
+        {
+            OriginalFileName = "holiday.mp4",
+            ContentType = "video/mp4",
+            SizeBytes = SeededFileSizeBytes,
+            DurationSeconds = 12.5,
+            Status = status,
+        };
+        video.FileName = $"{video.Id}.mp4";
+
+        if (createFile)
+        {
+            Directory.CreateDirectory(factory.StorageDirectory);
+            await File.WriteAllBytesAsync(GetFilePath(video), new byte[SeededFileSizeBytes]);
+        }
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Videos.Add(video);
+        await db.SaveChangesAsync();
+
+        return video;
+    }
+
+    private async Task<bool> VideoExistsInDbAsync(Guid id)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.Videos.AnyAsync(v => v.Id == id);
     }
 }
