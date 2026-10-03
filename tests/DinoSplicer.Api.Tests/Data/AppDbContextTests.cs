@@ -25,6 +25,7 @@ public class AppDbContextTests : IAsyncLifetime
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(_postgres.GetConnectionString())
+            .UseSnakeCaseNamingConvention()
             .Options;
 
         await using var context = new AppDbContext(options);

@@ -12,9 +12,10 @@ const long RequestOverheadBytes = 1024 * 1024;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-// Register the database context and configure it to use PostgreSQL
+// Register the database context and configure it to use PostgreSQL with snake_case naming
 builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
-    options.UseNpgsql(serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(serviceProvider.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection"))
+           .UseSnakeCaseNamingConvention());
 
 // Bind the "VideoUpload" section of appsettings.json to VideoUploadOptions
 builder.Services.AddOptions<VideoUploadOptions>().BindConfiguration(VideoUploadOptions.SectionName);
