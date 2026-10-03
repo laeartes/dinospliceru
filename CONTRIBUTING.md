@@ -92,6 +92,9 @@ All branches must be created from `main` and strictly follow the format below in
   * PascalCase for Classes, Records, Interfaces, Methods, and Public Properties.
   * camelCase for method arguments and local variables.
   * `_camelCase` for private fields.
+* **Database Conventions:**
+  * All database tables, columns, constraints, and indexes use `snake_case` (e.g., `file_name`, `created_at`).
+  * Maintain standard PascalCase for C# entity properties; naming conversion is handled globally by `EFCore.NamingConventions`.
 
 ### Frontend 
 * **File Naming:** PascalCase for React components (`TimelineTrack.tsx`), camelCase for utilities/hooks (`useScrubber.ts`).
