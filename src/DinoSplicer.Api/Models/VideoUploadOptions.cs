@@ -8,6 +8,8 @@ public class VideoUploadOptions
 
     public long MaxFileSizeBytes { get; set; }
 
+    public int MetadataTimeoutSeconds { get; set; } = 30;
+
     public string[] AllowedExtensions { get; set; } = [];
 
     public string[] AllowedContentTypes { get; set; } = [];

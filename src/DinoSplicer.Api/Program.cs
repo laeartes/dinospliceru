@@ -1,5 +1,6 @@
 using DinoSplicer.Api.Data;
 using DinoSplicer.Api.Models;
+using DinoSplicer.Api.Services;
 
 using FFMpegCore;
 
@@ -26,12 +27,17 @@ builder.Services.AddOptions<KestrelServerOptions>().Configure<IOptions<VideoUplo
 builder.Services.AddOptions<FormOptions>().Configure<IOptions<VideoUploadOptions>>((form, upload) =>
     form.MultipartBodyLengthLimit = upload.Value.MaxFileSizeBytes + RequestOverheadBytes);
 
-// Configure FFmpeg binary resolution
+// Configure FFmpeg binary resolution (empty folder = look up ffmpeg/ffprobe on PATH)
 GlobalFFOptions.Configure(options =>
 {
-    options.BinaryFolder = Environment.GetEnvironmentVariable("FFMPEG_BINARY_PATH") ?? "/usr/bin";
+    options.BinaryFolder = Environment.GetEnvironmentVariable("FFMPEG_BINARY_PATH") ?? string.Empty;
     options.TemporaryFilesFolder = Environment.GetEnvironmentVariable("FFMPEG_TEMP_PATH") ?? Path.GetTempPath();
 });
+
+// Metadata extraction runs in the background so the upload response is not blocked
+builder.Services.AddSingleton<VideoProcessingQueue>();
+builder.Services.AddSingleton<IVideoMetadataExtractor>(_ => new FFProbeVideoMetadataExtractor());
+builder.Services.AddHostedService<VideoProcessingWorker>();
 
 builder.Services.AddControllers();
 
