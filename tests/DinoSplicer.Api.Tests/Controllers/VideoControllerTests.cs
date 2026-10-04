@@ -122,6 +122,8 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         body.ContentType.Should().Be(video.ContentType);
         body.SizeBytes.Should().Be(video.SizeBytes);
         body.DurationSeconds.Should().Be(video.DurationSeconds);
+        body.Resolution.Should().BeNull();
+        body.Codec.Should().BeNull();
         body.Status.Should().Be(nameof(VideoStatus.Uploaded));
         // Postgres stores microseconds, DateTime has 100ns ticks, so an exact match can fail
         body.CreatedAt.Should().BeCloseTo(video.CreatedAt, TimeSpan.FromSeconds(1));
