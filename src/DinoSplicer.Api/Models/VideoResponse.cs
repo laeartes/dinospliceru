@@ -6,6 +6,8 @@ public record VideoResponse(
     string ContentType,
     long SizeBytes,
     double? DurationSeconds,
+    Resolution? Resolution,
+    string? Codec,
     string Status,
     DateTime CreatedAt
 )
@@ -20,6 +22,8 @@ public record VideoResponse(
             video.ContentType,
             video.SizeBytes,
             video.DurationSeconds,
+            video.Resolution,
+            video.Codec,
             video.Status.ToString(),
             video.CreatedAt
         );
