@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 using DinoSplicer.Api.Data;
 using DinoSplicer.Api.Models;
@@ -195,6 +196,83 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
         File.Exists(GetFilePath(video)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Upload_ValidVideoFile_BackgroundWorkerExtractsMetadataAndSetsReadyStatus()
+    {
+        string fixturePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample_320x240.mp4");
+        byte[] videoBytes = await File.ReadAllBytesAsync(fixturePath);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage uploadResponse = await client.PostAsync(
+            UploadUrl,
+            CreateUpload("sample.mp4", "video/mp4", videoBytes)
+        );
+
+        uploadResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        VideoUploadResponse uploadBody = (await uploadResponse.Content.ReadFromJsonAsync<VideoUploadResponse>())!;
+
+        JsonElement finalVideo = await PollUntilFinishedAsync(client, uploadBody.Id, TimeSpan.FromSeconds(10));
+
+        finalVideo.GetProperty("status").GetString().Should().Be(nameof(VideoStatus.Ready));
+        finalVideo.GetProperty("durationSeconds").GetDouble().Should().BeApproximately(1.0, 0.1);
+        finalVideo.GetProperty("resolution").GetProperty("width").GetInt32().Should().Be(320);
+        finalVideo.GetProperty("resolution").GetProperty("height").GetInt32().Should().Be(240);
+        finalVideo.GetProperty("codec").GetString().Should().Be("h264");
+    }
+
+    [Fact]
+    public async Task Upload_CorruptedVideoFile_BackgroundWorkerSetsFailedStatusWithoutCrashing()
+    {
+        byte[] corruptedBytes = "not-a-real-video-stream-content"u8.ToArray();
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage uploadResponse = await client.PostAsync(
+            UploadUrl,
+            CreateUpload("corrupt.mp4", "video/mp4", corruptedBytes)
+        );
+
+        uploadResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        VideoUploadResponse uploadBody = (await uploadResponse.Content.ReadFromJsonAsync<VideoUploadResponse>())!;
+
+        JsonElement finalVideo = await PollUntilFinishedAsync(client, uploadBody.Id, TimeSpan.FromSeconds(10));
+
+        finalVideo.GetProperty("status").GetString().Should().Be(nameof(VideoStatus.Failed));
+        finalVideo.GetProperty("durationSeconds").ValueKind.Should().Be(JsonValueKind.Null);
+        finalVideo.GetProperty("resolution").ValueKind.Should().Be(JsonValueKind.Null);
+        finalVideo.GetProperty("codec").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    private static MultipartFormDataContent CreateUpload(string fileName, string contentType, byte[] fileBytes)
+    {
+        MultipartFormDataContent content = new();
+        ByteArrayContent fileContent = new(fileBytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        content.Add(fileContent, "file", fileName);
+        return content;
+    }
+
+    private static async Task<JsonElement> PollUntilFinishedAsync(HttpClient client, Guid id, TimeSpan timeout)
+    {
+        using CancellationTokenSource cts = new(timeout);
+        while (!cts.IsCancellationRequested)
+        {
+            HttpResponseMessage response = await client.GetAsync(VideoUrl(id), cts.Token);
+            if (response.IsSuccessStatusCode)
+            {
+                JsonElement video = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cts.Token);
+                string? status = video.GetProperty("status").GetString();
+                if (status is nameof(VideoStatus.Ready) or nameof(VideoStatus.Failed))
+                {
+                    return video;
+                }
+            }
+
+            await Task.Delay(100, cts.Token);
+        }
+
+        throw new TimeoutException($"Video {id} did not finish processing within {timeout}.");
     }
 
     private static MultipartFormDataContent CreateUpload(params (string FileName, string ContentType, int SizeBytes)[] files)

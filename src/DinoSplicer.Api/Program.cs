@@ -30,7 +30,20 @@ builder.Services.AddOptions<FormOptions>().Configure<IOptions<VideoUploadOptions
 // Configure FFmpeg binary resolution (empty folder = look up ffmpeg/ffprobe on PATH)
 GlobalFFOptions.Configure(options =>
 {
-    options.BinaryFolder = Environment.GetEnvironmentVariable("FFMPEG_BINARY_PATH") ?? string.Empty;
+    string? envPath = Environment.GetEnvironmentVariable("FFMPEG_BINARY_PATH");
+    if (!string.IsNullOrEmpty(envPath))
+    {
+        options.BinaryFolder = envPath;
+    }
+    else if (Directory.Exists("/opt/homebrew/bin") && File.Exists("/opt/homebrew/bin/ffprobe"))
+    {
+        options.BinaryFolder = "/opt/homebrew/bin";
+    }
+    else
+    {
+        options.BinaryFolder = string.Empty;
+    }
+
     options.TemporaryFilesFolder = Environment.GetEnvironmentVariable("FFMPEG_TEMP_PATH") ?? Path.GetTempPath();
 });
 
