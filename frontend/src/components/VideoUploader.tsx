@@ -1,11 +1,6 @@
 import { useState, useRef, useEffect, type DragEvent, type ChangeEvent, type KeyboardEvent } from 'react'
+import type { VideoUploadConfig } from '../api/configApi'
 import { formatFileSize } from '../utils/formatFileSize'
-
-const ALLOWED_EXTENSIONS = ['.mp4', '.mov', '.webm']
-const ALLOWED_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
-const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024
-
-const ACCEPT_STRING = ALLOWED_EXTENSIONS.join(',') + ',' + ALLOWED_MIME_TYPES.join(',')
 
 function getExtension(file: File): string {
   const dotIndex = file.name.lastIndexOf('.')
@@ -13,32 +8,37 @@ function getExtension(file: File): string {
   return file.name.slice(dotIndex).toLowerCase()
 }
 
-function validateVideoFile(file: File): string | null {
+function validateVideoFile(file: File, config: VideoUploadConfig): string | null {
+  const acceptedList = config.allowedExtensions.join(', ')
   const ext = getExtension(file)
   if (!ext) {
-    return `File has no extension. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`
+    return `File has no extension. Accepted: ${acceptedList}`
   }
 
-  if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    return `Invalid file type. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`
+  // Case-insensitive, matching the backend's OrdinalIgnoreCase comparison
+  const allowedExtensions = config.allowedExtensions.map((e) => e.toLowerCase())
+  if (!allowedExtensions.includes(ext)) {
+    return `Invalid file type. Accepted: ${acceptedList}`
   }
 
-  if (file.type && !ALLOWED_MIME_TYPES.includes(file.type)) {
-    return `Invalid file type. Accepted: ${ALLOWED_EXTENSIONS.join(', ')}`
+  const allowedContentTypes = config.allowedContentTypes.map((t) => t.toLowerCase())
+  if (file.type && !allowedContentTypes.includes(file.type.toLowerCase())) {
+    return `Invalid file type. Accepted: ${acceptedList}`
   }
 
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return `File too large. Maximum size is 500MB`
+  if (file.size > config.maxFileSizeBytes) {
+    return `File too large. Maximum size is ${formatFileSize(config.maxFileSizeBytes)}`
   }
 
   return null
 }
 
 interface VideoUploaderProps {
+  config: VideoUploadConfig
   onFileSelect?: (file: File) => void
 }
 
-function VideoUploader({ onFileSelect }: VideoUploaderProps) {
+function VideoUploader({ config, onFileSelect }: VideoUploaderProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -83,7 +83,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
       return
     }
 
-    const validationError = validateVideoFile(files[0])
+    const validationError = validateVideoFile(files[0], config)
     if (validationError) {
       setError(validationError)
       return
@@ -97,7 +97,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const validationError = validateVideoFile(file)
+    const validationError = validateVideoFile(file, config)
     if (validationError) {
       setError(validationError)
       if (inputRef.current) {
@@ -153,6 +153,8 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
     }
   }
 
+  const acceptString = [...config.allowedExtensions, ...config.allowedContentTypes].join(',')
+
   const borderClass = isDragging
     ? 'border-cyber-cyan bg-cyan-50/50'
     : 'border-cyber-border bg-white'
@@ -172,7 +174,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT_STRING}
+        accept={acceptString}
         className="sr-only"
         tabIndex={-1}
         data-testid="file-input"
@@ -265,7 +267,7 @@ function VideoUploader({ onFileSelect }: VideoUploaderProps) {
             </button>
 
             <p className="text-xs text-slate-400 font-mono">
-              Accepted: .mp4, .mov, .webm &middot; Max size: 500MB (´｡• ᵕ •｡`)
+              Accepted: {config.allowedExtensions.join(', ')} &middot; Max size: {formatFileSize(config.maxFileSizeBytes)} (´｡• ᵕ •｡`)
             </p>
           </div>
 

@@ -1,7 +1,20 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import VideoUploader from '../../src/components/VideoUploader'
+import type { VideoUploadConfig } from '../../src/api/configApi'
 import { formatFileSize } from '../../src/utils/formatFileSize'
+
+const defaultConfig: VideoUploadConfig = {
+  maxFileSizeBytes: 500 * 1024 * 1024,
+  allowedExtensions: ['.mp4', '.mov', '.webm'],
+  allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/webm'],
+}
+
+const customConfig: VideoUploadConfig = {
+  maxFileSizeBytes: 2 * 1024 * 1024,
+  allowedExtensions: ['.mkv'],
+  allowedContentTypes: ['video/x-matroska'],
+}
 
 function createFile(name: string, type: string, size = 1024): File {
   return new File(['x'.repeat(size)], name, { type })
@@ -13,14 +26,15 @@ describe('formatFileSize', () => {
   })
 
   it('formats bytes as MB at or above 1MB', () => {
-    expect(formatFileSize(1024 * 1024)).toBe('1.0MB')
-    expect(formatFileSize(50 * 1024 * 1024)).toBe('50.0MB')
+    expect(formatFileSize(1024 * 1024)).toBe('1MB')
+    expect(formatFileSize(50 * 1024 * 1024)).toBe('50MB')
+    expect(formatFileSize(1.5 * 1024 * 1024)).toBe('1.5MB')
   })
 })
 
 describe('VideoUploader', () => {
   it('renders the dropzone and browse button', () => {
-    render(<VideoUploader />)
+    render(<VideoUploader config={defaultConfig} />)
 
     expect(screen.getByText(/drag & drop your video here/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /browse files/i })).toBeInTheDocument()
@@ -29,7 +43,7 @@ describe('VideoUploader', () => {
   })
 
   it('applies drag-over styles on dragover', () => {
-    render(<VideoUploader />)
+    render(<VideoUploader config={defaultConfig} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
 
@@ -42,7 +56,7 @@ describe('VideoUploader', () => {
 
   it('shows file info after dropping a valid single file and does not call onFileSelect', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const file = createFile('test.mp4', 'video/mp4')
@@ -58,7 +72,7 @@ describe('VideoUploader', () => {
 
   it('calls onFileSelect when the confirm (Upload) button is clicked', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const file = createFile('test.mp4', 'video/mp4')
@@ -74,7 +88,7 @@ describe('VideoUploader', () => {
   })
 
   it('returns to dropzone after clicking choose different', () => {
-    render(<VideoUploader />)
+    render(<VideoUploader config={defaultConfig} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const file = createFile('test.mp4', 'video/mp4')
@@ -93,7 +107,7 @@ describe('VideoUploader', () => {
 
   it('shows an error when multiple files are dropped and does not call onFileSelect', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const files = [
@@ -111,7 +125,7 @@ describe('VideoUploader', () => {
 
   it('rejects a dropped file with invalid extension', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const file = createFile('readme.txt', 'text/plain')
@@ -126,7 +140,7 @@ describe('VideoUploader', () => {
 
   it('rejects a dropped file with invalid mime type', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const file = createFile('video.mp4', 'application/octet-stream')
@@ -141,7 +155,7 @@ describe('VideoUploader', () => {
 
   it('rejects a dropped file over the size limit', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const oversized = createFile('large.mp4', 'video/mp4', 500 * 1024 * 1024 + 1)
@@ -156,7 +170,7 @@ describe('VideoUploader', () => {
 
   it('rejects a file selected via file picker with invalid extension', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const input = screen.getByTestId('file-input')
     const file = createFile('data.json', 'application/json')
@@ -169,7 +183,7 @@ describe('VideoUploader', () => {
 
   it('rejects a dropped file without any file extension', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const dropzone = screen.getByText(/drag & drop your video here/i).parentElement!.parentElement!
     const file = createFile('videofile', 'video/mp4')
@@ -184,7 +198,7 @@ describe('VideoUploader', () => {
 
   it('rejects a file selected via file picker without any file extension', () => {
     const onFileSelect = vi.fn()
-    render(<VideoUploader onFileSelect={onFileSelect} />)
+    render(<VideoUploader config={defaultConfig} onFileSelect={onFileSelect} />)
 
     const input = screen.getByTestId('file-input')
     const file = createFile('videofile', 'video/mp4')
@@ -196,7 +210,7 @@ describe('VideoUploader', () => {
   })
 
   it('allows selecting the same file again after clicking choose different', () => {
-    render(<VideoUploader />)
+    render(<VideoUploader config={defaultConfig} />)
 
     const input = screen.getByTestId<HTMLInputElement>('file-input')
     const file = createFile('clip.mp4', 'video/mp4')
@@ -213,7 +227,7 @@ describe('VideoUploader', () => {
   })
 
   it('triggers file picker click when Enter or Space is pressed on the dropzone', () => {
-    render(<VideoUploader />)
+    render(<VideoUploader config={defaultConfig} />)
 
     const dropzone = screen.getByRole('region', { name: /video uploader/i })
     const input = screen.getByTestId('file-input')
@@ -227,7 +241,7 @@ describe('VideoUploader', () => {
   })
 
   it('focuses the upload button when a file is selected', () => {
-    render(<VideoUploader />)
+    render(<VideoUploader config={defaultConfig} />)
 
     const input = screen.getByTestId('file-input')
     const file = createFile('test.mp4', 'video/mp4')
@@ -239,7 +253,7 @@ describe('VideoUploader', () => {
   })
 
   it('clears selection when Escape key is pressed', () => {
-    render(<VideoUploader />)
+    render(<VideoUploader config={defaultConfig} />)
 
     const input = screen.getByTestId('file-input')
     const file = createFile('test.mp4', 'video/mp4')
@@ -252,5 +266,52 @@ describe('VideoUploader', () => {
 
     expect(screen.queryByTestId('file-name')).not.toBeInTheDocument()
     expect(screen.getByText(/drag & drop your video here/i)).toBeInTheDocument()
+  })
+
+  it('shows accepted formats and max size from the config prop', () => {
+    render(<VideoUploader config={customConfig} />)
+
+    expect(screen.getByText(/accepted: \.mkv · max size: 2mb/i)).toBeInTheDocument()
+    expect(screen.queryByText(/\.mp4/i)).not.toBeInTheDocument()
+    expect(screen.getByTestId('file-input')).toHaveAttribute('accept', '.mkv,video/x-matroska')
+  })
+
+  it('accepts a file that is only allowed by the config prop', () => {
+    render(<VideoUploader config={customConfig} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('clip.mkv', 'video/x-matroska')] } })
+
+    expect(screen.getByTestId('file-name')).toHaveTextContent('clip.mkv')
+  })
+
+  it('rejects a file whose format is not in the config prop', () => {
+    render(<VideoUploader config={customConfig} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('clip.mp4', 'video/mp4')] } })
+
+    expect(screen.queryByTestId('file-name')).not.toBeInTheDocument()
+    expect(screen.getByText(/invalid file type\. accepted: \.mkv/i)).toBeInTheDocument()
+  })
+
+  it('rejects a file over the max size from the config prop', () => {
+    render(<VideoUploader config={customConfig} />)
+
+    const input = screen.getByTestId('file-input')
+    const oversized = createFile('clip.mkv', 'video/x-matroska', 2 * 1024 * 1024 + 1)
+    fireEvent.change(input, { target: { files: [oversized] } })
+
+    expect(screen.queryByTestId('file-name')).not.toBeInTheDocument()
+    expect(screen.getByText(/file too large\. maximum size is 2mb/i)).toBeInTheDocument()
+  })
+
+  it('compares configured extensions case-insensitively', () => {
+    render(<VideoUploader config={{ ...customConfig, allowedExtensions: ['.MKV'] }} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('clip.mkv', 'video/x-matroska')] } })
+
+    expect(screen.getByTestId('file-name')).toHaveTextContent('clip.mkv')
   })
 })

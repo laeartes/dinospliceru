@@ -3,7 +3,7 @@ function formatFileSize(bytes: number): string {
   if (mb < 1) {
     return `${Math.round(bytes / 1024)}KB`
   }
-  return `${mb.toFixed(1)}MB`
+  return `${mb.toFixed(1).replace(/\.0$/, '')}MB`
 }
 
 export { formatFileSize }
