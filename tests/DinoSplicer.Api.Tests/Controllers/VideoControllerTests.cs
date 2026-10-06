@@ -7,6 +7,7 @@ using DinoSplicer.Api.Models;
 
 using FluentAssertions;
 
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -57,6 +58,35 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload((fileName, contentType, 1024)));
 
         response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
+    }
+
+    [Fact]
+    public async Task Upload_FormatAddedInConfig_Returns201()
+    {
+        await using WebApplicationFactory<Program> customFactory = factory.WithConfiguration(new Dictionary<string, string?>
+        {
+            ["VideoUpload:AllowedExtensions:4"] = ".avi",
+            ["VideoUpload:AllowedContentTypes:4"] = "video/x-msvideo",
+        });
+        HttpClient client = customFactory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload(("clip.avi", "video/x-msvideo", 1024)));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Upload_MaxSizeLoweredInConfig_Returns413()
+    {
+        await using WebApplicationFactory<Program> customFactory = factory.WithConfiguration(new Dictionary<string, string?>
+        {
+            ["VideoUpload:MaxFileSizeBytes"] = "512",
+        });
+        HttpClient client = customFactory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload(("clip.mp4", "video/mp4", 1024)));
+
+        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
     }
 
     [Fact]
