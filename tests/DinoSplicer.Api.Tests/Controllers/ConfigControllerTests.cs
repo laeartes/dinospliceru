@@ -26,7 +26,7 @@ public class ConfigControllerTests(VideoApiFactory factory) : IClassFixture<Vide
         body.Should().NotBeNull();
         body!.VideoUpload.MaxFileSizeBytes.Should().Be(VideoApiFactory.TestMaxFileSizeBytes);
         body.VideoUpload.AllowedExtensions.Should().Equal(".mp4", ".mov", ".mkv", ".webm");
-        body.VideoUpload.AllowedContentTypes.Should().Equal("video/mp4", "video/quicktime", "video/x-matroska", "video/webm");
+        body.VideoUpload.AllowedContentTypes.Should().Equal("video/mp4", "video/quicktime", "video/x-matroska", "video/matroska", "video/webm");
     }
 
     [Fact]

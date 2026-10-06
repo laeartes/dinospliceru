@@ -60,13 +60,25 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
     }
 
+    [Theory]
+    [InlineData("video/x-matroska")]
+    [InlineData("video/matroska")]
+    public async Task Upload_MkvWithEitherMatroskaContentType_Returns201(string contentType)
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload(("clip.mkv", contentType, 1024)));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
     [Fact]
     public async Task Upload_FormatAddedInConfig_Returns201()
     {
         await using WebApplicationFactory<Program> customFactory = factory.WithConfiguration(new Dictionary<string, string?>
         {
             ["VideoUpload:AllowedExtensions:4"] = ".avi",
-            ["VideoUpload:AllowedContentTypes:4"] = "video/x-msvideo",
+            ["VideoUpload:AllowedContentTypes:5"] = "video/x-msvideo",
         });
         HttpClient client = customFactory.CreateClient();
 
