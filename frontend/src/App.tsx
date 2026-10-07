@@ -31,7 +31,7 @@ function App() {
               onClick={uploadConfig.retry}
               className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
             >
-              Retry( -_ -)
+              Retry ( -_ -)
             </button>
           </div>
         )}

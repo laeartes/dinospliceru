@@ -64,7 +64,7 @@ describe('App', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't load upload settings/i)
     expect(screen.queryByRole('region', { name: /video uploader/i })).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Retry( -_ -)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Retry ( -_ -)' }))
 
     expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(2)
