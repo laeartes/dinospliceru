@@ -33,6 +33,14 @@ public class VideoApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }));
     }
 
+    // Config arrays merge by index: an override at index N replaces or appends that one item,
+    // it does not clear the rest of the array from appsettings.json
+    public WebApplicationFactory<Program> WithConfiguration(IDictionary<string, string?> overrides)
+    {
+        return WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(overrides)));
+    }
+
     public async Task InitializeAsync()
     {
         await _postgres.StartAsync();
