@@ -31,18 +31,7 @@ builder.Services.AddOptions<FormOptions>().Configure<IOptions<VideoUploadOptions
 GlobalFFOptions.Configure(options =>
 {
     string? envPath = Environment.GetEnvironmentVariable("FFMPEG_BINARY_PATH");
-    if (!string.IsNullOrEmpty(envPath))
-    {
-        options.BinaryFolder = envPath;
-    }
-    else if (Directory.Exists("/opt/homebrew/bin") && File.Exists("/opt/homebrew/bin/ffprobe"))
-    {
-        options.BinaryFolder = "/opt/homebrew/bin";
-    }
-    else
-    {
-        options.BinaryFolder = string.Empty;
-    }
+    options.BinaryFolder = string.IsNullOrEmpty(envPath) ? string.Empty : envPath;
 
     options.TemporaryFilesFolder = Environment.GetEnvironmentVariable("FFMPEG_TEMP_PATH") ?? Path.GetTempPath();
 });

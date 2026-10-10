@@ -105,7 +105,7 @@ public class VideoController(
             throw;
         }
 
-        await processingQueue.EnqueueAsync(video.Id, cancellationToken);
+        await processingQueue.EnqueueAsync(video.Id, CancellationToken.None);
 
         VideoUploadResponse response = new(video.Id, video.OriginalFileName, video.SizeBytes, video.Status.ToString());
         return Created($"/api/videos/{video.Id}", response);

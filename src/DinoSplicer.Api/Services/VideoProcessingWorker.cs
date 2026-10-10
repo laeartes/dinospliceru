@@ -40,29 +40,19 @@ public class VideoProcessingWorker(
             using IServiceScope scope = scopeFactory.CreateScope();
             AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            List<Video> stuckProcessing = await db.Videos
-                .Where(v => v.Status == VideoStatus.Processing)
-                .ToListAsync(cancellationToken);
-
-            foreach (Video video in stuckProcessing)
-            {
-                video.Status = VideoStatus.Failed;
-                logger.LogWarning("Video {VideoId} was in Processing during startup; marked as Failed", video.Id);
-            }
-
-            if (stuckProcessing.Count > 0)
-            {
-                await db.SaveChangesAsync(cancellationToken);
-            }
-
-            List<Guid> pendingUploads = await db.Videos
-                .Where(v => v.Status == VideoStatus.Uploaded)
+            List<Guid> pendingIds = await db.Videos
+                .Where(v => v.Status == VideoStatus.Uploaded || v.Status == VideoStatus.Processing)
                 .Select(v => v.Id)
                 .ToListAsync(cancellationToken);
 
-            foreach (Guid id in pendingUploads)
+            foreach (Guid id in pendingIds)
             {
                 await queue.EnqueueAsync(id, cancellationToken);
+            }
+
+            if (pendingIds.Count > 0)
+            {
+                logger.LogInformation("Re-queued {Count} unfinished video(s) on startup", pendingIds.Count);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -90,6 +80,12 @@ public class VideoProcessingWorker(
             return;
         }
 
+        if (video.Status is VideoStatus.Ready or VideoStatus.Failed)
+        {
+            logger.LogInformation("Video {VideoId} is already {Status}, skipping", videoId, video.Status);
+            return;
+        }
+
         video.Status = VideoStatus.Processing;
         await db.SaveChangesAsync(cancellationToken);
 
@@ -111,7 +107,7 @@ public class VideoProcessingWorker(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            video.Status = VideoStatus.Failed;
+            video.Status = VideoStatus.Uploaded;
             await db.SaveChangesAsync(CancellationToken.None);
             throw;
         }
