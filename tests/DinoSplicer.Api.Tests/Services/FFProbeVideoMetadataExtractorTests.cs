@@ -33,7 +33,7 @@ public class FFProbeVideoMetadataExtractorTests
     [Fact]
     public async Task ExtractMetadata_ValidAnalysis_MapsDurationResolutionAndCodec()
     {
-        var extractor = ExtractorReturning(AnalysisOf(1920, 1080, "h264", TimeSpan.FromSeconds(12.5)));
+        FFProbeVideoMetadataExtractor extractor = ExtractorReturning(AnalysisOf(1920, 1080, "h264", TimeSpan.FromSeconds(12.5)));
 
         VideoMetadata metadata = await extractor.ExtractMetadata(filePath: "a.mp4", extractCodec: true);
 
@@ -46,7 +46,7 @@ public class FFProbeVideoMetadataExtractorTests
     [Fact]
     public async Task ExtractMetadata_ExtractCodecFalse_LeavesCodecNull()
     {
-        var extractor = ExtractorReturning(AnalysisOf(640, 360, "vp9", TimeSpan.FromSeconds(1)));
+        FFProbeVideoMetadataExtractor extractor = ExtractorReturning(AnalysisOf(640, 360, "vp9", TimeSpan.FromSeconds(1)));
 
         VideoMetadata metadata = await extractor.ExtractMetadata(filePath: "a.webm", extractCodec: false);
 
@@ -57,7 +57,7 @@ public class FFProbeVideoMetadataExtractorTests
     [Fact]
     public async Task ExtractMetadata_NoVideoStream_ThrowsInvalidOperationException()
     {
-        var extractor = ExtractorReturning(new FakeMediaAnalysis(TimeSpan.FromSeconds(3), primaryVideoStream: null));
+        FFProbeVideoMetadataExtractor extractor = ExtractorReturning(new FakeMediaAnalysis(TimeSpan.FromSeconds(3), primaryVideoStream: null));
 
         Func<Task> act = () => extractor.ExtractMetadata(filePath: "audio-only.mp4");
 

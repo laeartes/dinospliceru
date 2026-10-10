@@ -201,7 +201,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
     [Fact]
     public async Task Upload_ValidVideoFile_BackgroundWorkerExtractsMetadataAndSetsReadyStatus()
     {
-        string fixturePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample_320x240.mp4");
+        string fixturePath = Path.Combine(AppContext.BaseDirectory, "assets", "sample_320x240.mp4");
         byte[] videoBytes = await File.ReadAllBytesAsync(fixturePath);
         HttpClient client = factory.CreateClient();
 

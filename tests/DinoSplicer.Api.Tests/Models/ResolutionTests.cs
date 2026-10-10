@@ -41,13 +41,4 @@ public class ResolutionTests
     {
         new Resolution(1280, 720).ToString().Should().Be("1280x720");
     }
-
-    [Fact]
-    public void Video_NoMetadataSet_HasNullResolutionAndCodec()
-    {
-        Video video = new();
-
-        video.Resolution.Should().BeNull();
-        video.Codec.Should().BeNull();
-    }
 }

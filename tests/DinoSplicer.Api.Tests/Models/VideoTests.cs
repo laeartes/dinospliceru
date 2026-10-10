@@ -77,4 +77,12 @@ public class VideoTests
         video.Status.Should().Be(VideoStatus.Uploaded);
     }
 
+    [Fact]
+    public void Video_NoMetadataSet_HasNullResolutionAndCodec()
+    {
+        Video video = new();
+
+        video.Resolution.Should().BeNull();
+        video.Codec.Should().BeNull();
+    }
 }
