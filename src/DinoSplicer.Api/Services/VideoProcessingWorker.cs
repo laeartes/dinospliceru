@@ -1,6 +1,7 @@
 using DinoSplicer.Api.Data;
 using DinoSplicer.Api.Models;
 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DinoSplicer.Api.Services;
@@ -13,6 +14,8 @@ public class VideoProcessingWorker(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await RecoverPendingVideosAsync(stoppingToken);
+
         await foreach (Guid videoId in queue.DequeueAllAsync(stoppingToken))
         {
             try
@@ -27,6 +30,48 @@ public class VideoProcessingWorker(
             {
                 logger.LogError(ex, "Unexpected error while processing video {VideoId}", videoId);
             }
+        }
+    }
+
+    public async Task RecoverPendingVideosAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using IServiceScope scope = scopeFactory.CreateScope();
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            List<Video> stuckProcessing = await db.Videos
+                .Where(v => v.Status == VideoStatus.Processing)
+                .ToListAsync(cancellationToken);
+
+            foreach (Video video in stuckProcessing)
+            {
+                video.Status = VideoStatus.Failed;
+                logger.LogWarning("Video {VideoId} was in Processing during startup; marked as Failed", video.Id);
+            }
+
+            if (stuckProcessing.Count > 0)
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            List<Guid> pendingUploads = await db.Videos
+                .Where(v => v.Status == VideoStatus.Uploaded)
+                .Select(v => v.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (Guid id in pendingUploads)
+            {
+                await queue.EnqueueAsync(id, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Host is stopping before recovery completed
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to recover pending videos on startup");
         }
     }
 
@@ -66,6 +111,8 @@ public class VideoProcessingWorker(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            video.Status = VideoStatus.Failed;
+            await db.SaveChangesAsync(CancellationToken.None);
             throw;
         }
         catch (Exception ex)
