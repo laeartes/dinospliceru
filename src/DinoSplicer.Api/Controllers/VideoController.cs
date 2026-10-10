@@ -1,6 +1,7 @@
 using DinoSplicer.Api.Data;
 using DinoSplicer.Api.Extensions;
 using DinoSplicer.Api.Models;
+using DinoSplicer.Api.Services;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -12,7 +13,8 @@ namespace DinoSplicer.Api.Controllers;
 public class VideoController(
     AppDbContext db,
     IOptions<VideoUploadOptions> uploadOptions,
-    IWebHostEnvironment environment
+    IWebHostEnvironment environment,
+    VideoProcessingQueue processingQueue
 ) : ControllerBase
 
 {
@@ -102,6 +104,8 @@ public class VideoController(
             System.IO.File.Delete(fullPath);
             throw;
         }
+
+        await processingQueue.EnqueueAsync(video.Id, CancellationToken.None);
 
         VideoUploadResponse response = new(video.Id, video.OriginalFileName, video.SizeBytes, video.Status.ToString());
         return Created($"/api/videos/{video.Id}", response);

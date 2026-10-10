@@ -39,6 +39,15 @@ public class AppDbContext : DbContext
             entity.Property(v => v.SizeBytes)
                 .IsRequired();
 
+            entity.ComplexProperty(v => v.Resolution, resolution =>
+            {
+                resolution.Property(r => r.Width).HasColumnName("resolution_width");
+                resolution.Property(r => r.Height).HasColumnName("resolution_height");
+            });
+
+            entity.Property(v => v.Codec)
+                .HasMaxLength(50);
+
             entity.Property(v => v.Status)
                 .IsRequired()
                 .HasConversion<string>()

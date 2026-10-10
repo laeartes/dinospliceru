@@ -23,6 +23,11 @@ public class Video
 
     public double? DurationSeconds { get; set; }
 
+    public Resolution? Resolution { get; set; }
+
+    [MaxLength(50)]
+    public string? Codec { get; set; }
+
     [Required]
     public VideoStatus Status { get; set; } = VideoStatus.Uploaded;
 

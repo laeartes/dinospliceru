@@ -57,6 +57,9 @@ public class AppDbContextTests : IAsyncLifetime
             "content_type",
             "size_bytes",
             "duration_seconds",
+            "resolution_width",
+            "resolution_height",
+            "codec",
             "status",
             "created_at"
         });
