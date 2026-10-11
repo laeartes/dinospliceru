@@ -65,13 +65,17 @@ function uploadVideo(file: File, options?: UploadVideoOptions): Promise<VideoUpl
       }
 
       const onAbort = () => {
-        xhr.abort()
+        try {
+          xhr.abort?.()
+        } catch {
+          // ignore abort failure
+        }
         reject(new DOMException('Upload aborted', 'AbortError'))
       }
 
       options.signal.addEventListener('abort', onAbort, { once: true })
 
-      xhr.addEventListener('loadend', () => {
+      xhr.addEventListener?.('loadend', () => {
         options.signal?.removeEventListener('abort', onAbort)
       })
     }
