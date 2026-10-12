@@ -69,4 +69,55 @@ describe('App', () => {
     expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('renders SplicePanel when uploaded video reaches Ready state', async () => {
+    class MockXHR {
+      upload = { onprogress: null }
+      status = 201
+      responseText = JSON.stringify({
+        id: 'app-vid-1',
+        fileName: 'test.mkv',
+        sizeBytes: 1024,
+        status: 'Uploaded',
+      })
+      onload: (() => void) | null = null
+      open() {}
+      send() {
+        setTimeout(() => this.onload?.(), 0)
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', MockXHR)
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okResponse())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'app-vid-1',
+            fileName: 'test.mkv',
+            contentType: 'video/x-matroska',
+            sizeBytes: 1024,
+            durationSeconds: 30.0,
+            resolution: { width: 1280, height: 720 },
+            codec: 'h264',
+            status: 'Ready',
+            createdAt: '2026-10-12T10:00:00Z',
+          }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('splice-panel')).not.toBeInTheDocument()
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [new File(['x'], 'test.mkv', { type: 'video/x-matroska' })] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    expect(await screen.findByTestId('splice-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('mode-by-length')).toBeInTheDocument()
+  })
 })

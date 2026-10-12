@@ -568,5 +568,85 @@ describe('VideoUploader', () => {
 
     vi.useRealTimers()
   })
+
+  it('calls onVideoReady callback when video reaches Ready status, and null when reset', async () => {
+    vi.useFakeTimers()
+    interface SimpleXhr {
+      status: number
+      responseText: string
+      upload: { onprogress: null }
+      onload: (() => void) | null
+      open: () => void
+      send: () => void
+    }
+    let capturedXhr: SimpleXhr | null = null
+
+    vi.stubGlobal(
+      'XMLHttpRequest',
+      vi.fn(function () {
+        const mock: SimpleXhr = {
+          status: 200,
+          responseText: '',
+          upload: { onprogress: null },
+          onload: null,
+          open: vi.fn(),
+          send: vi.fn(),
+        }
+        capturedXhr = mock
+        return mock
+      })
+    )
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          id: 'ready-cb-vid',
+          fileName: 'clip.mp4',
+          contentType: 'video/mp4',
+          sizeBytes: 1024,
+          durationSeconds: 15.0,
+          resolution: { width: 1280, height: 720 },
+          codec: 'h264',
+          status: 'Ready',
+          createdAt: '2026-10-11T12:00:00Z',
+        }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onVideoReady = vi.fn()
+    render(<VideoUploader config={defaultConfig} onVideoReady={onVideoReady} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('clip.mp4', 'video/mp4')] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    await act(async () => {
+      if (capturedXhr) {
+        capturedXhr.status = 201
+        capturedXhr.responseText = JSON.stringify({
+          id: 'ready-cb-vid',
+          fileName: 'clip.mp4',
+          sizeBytes: 1024,
+          status: 'Uploaded',
+        })
+        capturedXhr.onload?.()
+      }
+    })
+
+    expect(onVideoReady).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'ready-cb-vid',
+        status: 'Ready',
+      })
+    )
+
+    // When clicking upload another video, onVideoReady is reset to null
+    fireEvent.click(screen.getByTestId('upload-another-btn'))
+    expect(onVideoReady).toHaveBeenLastCalledWith(null)
+
+    vi.useRealTimers()
+  })
 })
 
