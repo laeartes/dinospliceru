@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type DragEvent, type ChangeEvent, type KeyboardEvent } from 'react'
 import type { VideoUploadConfig } from '../api/configApi'
+import type { VideoResponse } from '../api/videoApi'
 import { formatFileSize } from '../utils/formatFileSize'
 import { useVideoUpload } from '../hooks/useVideoUpload'
 
@@ -43,9 +44,10 @@ function formatDuration(seconds: number): string {
 interface VideoUploaderProps {
   config: VideoUploadConfig
   onFileSelect?: (file: File) => void
+  onVideoReady?: (video: VideoResponse | null) => void
 }
 
-function VideoUploader({ config, onFileSelect }: VideoUploaderProps) {
+function VideoUploader({ config, onFileSelect, onVideoReady }: VideoUploaderProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -54,6 +56,14 @@ function VideoUploader({ config, onFileSelect }: VideoUploaderProps) {
   const browseButtonRef = useRef<HTMLButtonElement>(null)
 
   const { uploadState, startUpload, reset, retry } = useVideoUpload()
+
+  useEffect(() => {
+    if (uploadState.status === 'ready') {
+      onVideoReady?.(uploadState.video)
+    } else {
+      onVideoReady?.(null)
+    }
+  }, [uploadState, onVideoReady])
 
   useEffect(() => {
     if (selectedFile) {
