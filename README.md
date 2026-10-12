@@ -96,17 +96,9 @@
 
 ## Running the Program
 
-### Ports and Local Setup Summary
-
-| Service | Where it runs | What it does / Connects to |
-|---|---|---|
-| **Frontend** (Vite / React) | `http://localhost:5173` | Calls backend at `http://localhost:5175`. (Set `VITE_API_BASE_URL` in `frontend/.env.local` to change this). |
-| **Backend** (ASP.NET Core) | `http://localhost:5175` | API server. Allows requests from `http://localhost:5173` via CORS in `Development` mode. |
-| **Database** (PostgreSQL) | `localhost:5432` | Local database container (`user: postgres`, `password: postgres`, `db: dinosplicer`). |
-
 ### Frontend
 
-Runs on `http://localhost:5173`.
+Runs on `http://localhost:5173` by default and connects to the backend at `http://localhost:5175`. Set `VITE_API_BASE_URL` in `frontend/.env.local` to change this.
 
 ```bash
 # Navigate to the frontend directory
@@ -133,7 +125,7 @@ npm run lint
 
 ### Backend
 
-Runs on `http://localhost:5175`.
+Runs on `http://localhost:5175` (HTTP) and `https://localhost:7059` (HTTPS). In `Development` mode, CORS is configured to allow requests from `http://localhost:5173`.
 
 ```bash
 # Run these commands from the repository root
