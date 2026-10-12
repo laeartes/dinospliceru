@@ -99,7 +99,10 @@ public class VideoController(
             db.Videos.Add(video);
             await db.SaveChangesAsync(cancellationToken);
         }
-        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        catch (Exception ex) when (ex is Microsoft.EntityFrameworkCore.DbUpdateException
+                                or Npgsql.NpgsqlException
+                                or System.Net.Sockets.SocketException
+                                or System.IO.IOException)
         {
             System.IO.File.Delete(fullPath);
             return Problem(
