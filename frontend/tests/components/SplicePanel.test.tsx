@@ -28,14 +28,33 @@ describe('SplicePanel', () => {
   })
 
   describe('mode and value form validation', () => {
-    it('renders mode buttons with ByLength selected by default and displays bounds', () => {
+    it('renders mode buttons with ByLength selected by default and displays bounds without unicode emojis', () => {
       render(<SplicePanel video={mockReadyVideo} />)
 
-      expect(screen.getByTestId('mode-by-length')).toHaveAttribute('aria-checked', 'true')
-      expect(screen.getByTestId('mode-by-size')).toHaveAttribute('aria-checked', 'false')
+      const lengthBtn = screen.getByTestId('mode-by-length')
+      const sizeBtn = screen.getByTestId('mode-by-size')
+
+      expect(lengthBtn).toHaveAttribute('aria-checked', 'true')
+      expect(lengthBtn).toHaveTextContent('By Length')
+      expect(lengthBtn.textContent).not.toContain('⏱')
+
+      expect(sizeBtn).toHaveAttribute('aria-checked', 'false')
+      expect(sizeBtn).toHaveTextContent('By Size')
+      expect(sizeBtn.textContent).not.toContain('💾')
+
       expect(screen.getByTestId('unit-seconds')).toBeInTheDocument()
       expect(screen.getByTestId('unit-mmss')).toBeInTheDocument()
       expect(screen.getByTestId('splice-helper-bounds')).toHaveTextContent(/Min: 1s · Max: 60.0s/i)
+    })
+
+    it('renders Back button when onBack is provided and calls onBack on click', () => {
+      const onBack = vi.fn()
+      render(<SplicePanel video={mockReadyVideo} onBack={onBack} />)
+
+      const backBtn = screen.getByTestId('splice-back-btn')
+      expect(backBtn).toHaveTextContent('← Back (• ◡•)')
+      fireEvent.click(backBtn)
+      expect(onBack).toHaveBeenCalledTimes(1)
     })
 
     it('switches to BySize mode and shows size units with bounds', () => {

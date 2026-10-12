@@ -12,9 +12,10 @@ import {
 
 interface SplicePanelProps {
   video: VideoResponse
+  onBack?: () => void
 }
 
-export default function SplicePanel({ video }: SplicePanelProps) {
+export default function SplicePanel({ video, onBack }: SplicePanelProps) {
   const [mode, setMode] = useState<SpliceMode>('ByLength')
   const [lengthUnit, setLengthUnit] = useState<LengthUnit>('s')
   const [sizeUnit, setSizeUnit] = useState<SizeUnit>('MB')
@@ -49,9 +50,28 @@ export default function SplicePanel({ video }: SplicePanelProps) {
     <section
       role="region"
       aria-label="Splice video parameters and results"
-      className="mt-6 border-2 border-solid border-cyber-border bg-white p-8 text-center transition-colors"
+      className="border-2 border-solid border-cyber-border bg-white p-8 text-center transition-colors"
       data-testid="splice-panel"
     >
+      {/* Top Navigation & Context Bar */}
+      {onBack && (
+        <div className="mb-4 flex items-center justify-between border-b border-dashed border-cyber-border/80 pb-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 border border-cyber-border bg-slate-50 px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-dark hover:bg-slate-100 transition-colors cursor-pointer"
+            data-testid="splice-back-btn"
+          >
+            ← Back (• ◡•)
+          </button>
+          <div className="flex items-center gap-2 font-mono text-xs text-slate-500 truncate max-w-xs sm:max-w-md">
+            <span className="text-slate-400">Source:</span>
+            <span className="font-semibold text-slate-700 truncate">{video.fileName}</span>
+            <span className="text-slate-400">({formatFileSize(video.sizeBytes)})</span>
+          </div>
+        </div>
+      )}
+
       {/* Panel Header */}
       <div className="mb-6 flex items-center justify-between border-b border-cyber-border pb-3 text-xs font-mono text-slate-500">
         <span className="flex items-center gap-1.5 text-cyber-dark">
@@ -81,28 +101,28 @@ export default function SplicePanel({ video }: SplicePanelProps) {
                 role="radio"
                 aria-checked={mode === 'ByLength'}
                 onClick={() => handleModeChange('ByLength')}
-                className={`border px-4 py-2 text-sm font-mono transition-colors ${
+                className={`border px-4 py-2 text-sm font-mono transition-colors cursor-pointer ${
                   mode === 'ByLength'
                     ? 'border-cyber-cyan bg-cyber-cyan/15 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
                 }`}
                 data-testid="mode-by-length"
               >
-                ⏱ By Length
+                By Length
               </button>
               <button
                 type="button"
                 role="radio"
                 aria-checked={mode === 'BySize'}
                 onClick={() => handleModeChange('BySize')}
-                className={`border px-4 py-2 text-sm font-mono transition-colors ${
+                className={`border px-4 py-2 text-sm font-mono transition-colors cursor-pointer ${
                   mode === 'BySize'
                     ? 'border-cyber-cyan bg-cyber-cyan/15 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
                 }`}
                 data-testid="mode-by-size"
               >
-                💾 By Size
+                By Size
               </button>
             </div>
           </div>

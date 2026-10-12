@@ -9,6 +9,14 @@ import type { VideoResponse } from './api/videoApi'
 function App() {
   const uploadConfig = useUploadConfig()
   const [readyVideo, setReadyVideo] = useState<VideoResponse | null>(null)
+  const [currentView, setCurrentView] = useState<'overview' | 'splicer'>('overview')
+
+  const handleVideoReady = (video: VideoResponse | null) => {
+    setReadyVideo(video)
+    if (!video) {
+      setCurrentView('overview')
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-cyber-bg text-cyber-dark">
@@ -16,11 +24,21 @@ function App() {
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-12">
         {uploadConfig.status === 'ready' && (
           <>
-            <VideoUploader
-              config={uploadConfig.config}
-              onVideoReady={setReadyVideo}
-            />
-            {readyVideo && <SplicePanel video={readyVideo} />}
+            <div className={currentView === 'overview' ? 'block' : 'hidden'}>
+              <VideoUploader
+                config={uploadConfig.config}
+                onVideoReady={handleVideoReady}
+                onOpenSplicer={() => setCurrentView('splicer')}
+              />
+            </div>
+            {readyVideo && (
+              <div className={currentView === 'splicer' ? 'block' : 'hidden'}>
+                <SplicePanel
+                  video={readyVideo}
+                  onBack={() => setCurrentView('overview')}
+                />
+              </div>
+            )}
           </>
         )}
 

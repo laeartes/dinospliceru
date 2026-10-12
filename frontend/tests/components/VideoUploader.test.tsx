@@ -648,5 +648,83 @@ describe('VideoUploader', () => {
 
     vi.useRealTimers()
   })
+
+  it('renders disabled Editor button and clickable Splicer button when video is Ready', async () => {
+    vi.useFakeTimers()
+    interface SimpleXhr {
+      status: number
+      responseText: string
+      upload: { onprogress: null }
+      onload: (() => void) | null
+      open: () => void
+      send: () => void
+    }
+    let capturedXhr: SimpleXhr | null = null
+
+    vi.stubGlobal(
+      'XMLHttpRequest',
+      vi.fn(function () {
+        const mock: SimpleXhr = {
+          status: 200,
+          responseText: '',
+          upload: { onprogress: null },
+          onload: null,
+          open: vi.fn(),
+          send: vi.fn(),
+        }
+        capturedXhr = mock
+        return mock
+      })
+    )
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          id: 'ready-actions-vid',
+          fileName: 'video.mp4',
+          contentType: 'video/mp4',
+          sizeBytes: 1024,
+          durationSeconds: 15.0,
+          resolution: { width: 1280, height: 720 },
+          codec: 'h264',
+          status: 'Ready',
+          createdAt: '2026-10-11T12:00:00Z',
+        }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onOpenSplicer = vi.fn()
+    render(<VideoUploader config={defaultConfig} onOpenSplicer={onOpenSplicer} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('video.mp4', 'video/mp4')] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    await act(async () => {
+      if (capturedXhr) {
+        capturedXhr.status = 201
+        capturedXhr.responseText = JSON.stringify({
+          id: 'ready-actions-vid',
+          fileName: 'video.mp4',
+          sizeBytes: 1024,
+          status: 'Uploaded',
+        })
+        capturedXhr.onload?.()
+      }
+    })
+
+    const editorBtn = screen.getByTestId('editor-btn')
+    expect(editorBtn).toHaveTextContent(/Editor \(coming soon\)/i)
+    expect(editorBtn).toBeDisabled()
+
+    const splicerBtn = screen.getByTestId('open-splicer-btn')
+    expect(splicerBtn).toHaveTextContent(/Splicer/i)
+    fireEvent.click(splicerBtn)
+    expect(onOpenSplicer).toHaveBeenCalledTimes(1)
+
+    vi.useRealTimers()
+  })
 })
 

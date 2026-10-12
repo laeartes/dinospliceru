@@ -70,7 +70,7 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('renders SplicePanel when uploaded video reaches Ready state', async () => {
+  it('renders Ready overview with Editor and Splicer buttons, and preserves Splicer inputs across navigation', async () => {
     class MockXHR {
       upload = { onprogress: null }
       status = 201
@@ -111,13 +111,38 @@ describe('App', () => {
     render(<App />)
 
     expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
-    expect(screen.queryByTestId('splice-panel')).not.toBeInTheDocument()
 
     const input = screen.getByTestId('file-input')
     fireEvent.change(input, { target: { files: [new File(['x'], 'test.mkv', { type: 'video/x-matroska' })] } })
     fireEvent.click(screen.getByTestId('confirm-upload'))
 
-    expect(await screen.findByTestId('splice-panel')).toBeInTheDocument()
+    // Overview shows Ready status with Editor and Splicer buttons
+    const splicerBtn = await screen.findByTestId('open-splicer-btn')
+    const editorBtn = screen.getByTestId('editor-btn')
+    expect(editorBtn).toBeDisabled()
+    expect(splicerBtn).toBeInTheDocument()
+
+    // Click Splicer button to open Splicer screen
+    fireEvent.click(splicerBtn)
+
+    expect(screen.getByTestId('splice-panel')).toBeInTheDocument()
     expect(screen.getByTestId('mode-by-length')).toBeInTheDocument()
+
+    // Enter a value in Splicer screen
+    const valueInput = screen.getByTestId('splice-value-input') as HTMLInputElement
+    fireEvent.change(valueInput, { target: { value: '25' } })
+    expect(valueInput.value).toBe('25')
+
+    // Click Back button to return to overview
+    const backBtn = screen.getByTestId('splice-back-btn')
+    fireEvent.click(backBtn)
+
+    // Back on overview screen: Splicer button is visible again
+    expect(screen.getByTestId('open-splicer-btn')).toBeInTheDocument()
+
+    // Re-enter Splicer screen: previous input should be preserved!
+    fireEvent.click(screen.getByTestId('open-splicer-btn'))
+    const reopenedInput = screen.getByTestId('splice-value-input') as HTMLInputElement
+    expect(reopenedInput.value).toBe('25')
   })
 })

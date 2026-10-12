@@ -45,9 +45,10 @@ interface VideoUploaderProps {
   config: VideoUploadConfig
   onFileSelect?: (file: File) => void
   onVideoReady?: (video: VideoResponse | null) => void
+  onOpenSplicer?: () => void
 }
 
-function VideoUploader({ config, onFileSelect, onVideoReady }: VideoUploaderProps) {
+function VideoUploader({ config, onFileSelect, onVideoReady, onOpenSplicer }: VideoUploaderProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -340,10 +341,30 @@ function VideoUploader({ config, onFileSelect, onVideoReady }: VideoUploaderProp
               )}
             </div>
 
+            <div className="mt-2 flex flex-wrap justify-center items-center gap-3">
+              <button
+                type="button"
+                disabled
+                className="border border-slate-300 bg-slate-100 px-4 py-2 font-mono text-xs text-slate-400 cursor-not-allowed opacity-60"
+                data-testid="editor-btn"
+                title="Editor feature coming soon ( •̀_•́ )"
+              >
+                Editor (coming soon)
+              </button>
+              <button
+                type="button"
+                onClick={onOpenSplicer}
+                className="bg-cyber-cyan px-5 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
+                data-testid="open-splicer-btn"
+              >
+                Splicer (｡•̀ᴗ-)✧ ✦
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={handleUploadAnother}
-              className="mt-2 bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors"
+              className="mt-1 border border-cyber-border px-4 py-1.5 font-mono text-xs text-slate-600 hover:border-slate-400 hover:text-cyber-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors"
               data-testid="upload-another-btn"
             >
               Upload another video ✦
