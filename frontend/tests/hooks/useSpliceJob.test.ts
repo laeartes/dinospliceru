@@ -289,4 +289,36 @@ describe('useSpliceJob', () => {
     expect(createSpy.mock.calls[1][1]).toEqual({ mode: 'ByLength', value: 25 })
     expect(result.current.spliceState.status).toBe('ready')
   })
+
+  it('stops polling and transitions to error state when job exceeds 1 minute timeout', async () => {
+    vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+      jobId: 'job-timeout',
+      status: 'Pending',
+    })
+
+    const getSpy = vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+      id: 'job-timeout',
+      status: 'Processing',
+      segments: [],
+    })
+
+    const { result } = renderHook(() => useSpliceJob('video-1'))
+
+    await act(async () => {
+      await result.current.startSplice('ByLength', 20)
+    })
+
+    expect(result.current.spliceState.status).toBe('polling')
+    expect(getSpy).toHaveBeenCalledTimes(1)
+
+    // Advance by 60 seconds (60000ms)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60000)
+    })
+
+    expect(result.current.spliceState).toEqual({
+      status: 'error',
+      error: 'Splice job timed out after 1 minute (；´Д｀)',
+    })
+  })
 })

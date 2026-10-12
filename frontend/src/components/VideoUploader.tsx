@@ -46,9 +46,16 @@ interface VideoUploaderProps {
   onFileSelect?: (file: File) => void
   onVideoReady?: (video: VideoResponse | null) => void
   onOpenSplicer?: () => void
+  isSplicing?: boolean
 }
 
-function VideoUploader({ config, onFileSelect, onVideoReady, onOpenSplicer }: VideoUploaderProps) {
+function VideoUploader({
+  config,
+  onFileSelect,
+  onVideoReady,
+  onOpenSplicer,
+  isSplicing = false,
+}: VideoUploaderProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -354,10 +361,17 @@ function VideoUploader({ config, onFileSelect, onVideoReady, onOpenSplicer }: Vi
               <button
                 type="button"
                 onClick={onOpenSplicer}
-                className="bg-cyber-cyan px-5 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 bg-cyber-cyan px-5 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
                 data-testid="open-splicer-btn"
               >
-                Splicer (｡•̀ᴗ-)✧ ✦
+                {isSplicing ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-cyber-dark animate-pulse" aria-hidden="true" />
+                    <span>Splicer (processing...) ( •̀_•́ ) ✦</span>
+                  </>
+                ) : (
+                  <span>Splicer (｡•̀ᴗ-)✧ ✦</span>
+                )}
               </button>
             </div>
 

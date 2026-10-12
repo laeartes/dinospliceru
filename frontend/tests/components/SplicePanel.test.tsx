@@ -154,6 +154,18 @@ describe('SplicePanel', () => {
         /Segment size cannot exceed source video size/i
       )
     })
+
+    it('rejects ByLength inputs with more than 2 decimal places', () => {
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      const input = screen.getByTestId('splice-value-input')
+      fireEvent.change(input, { target: { value: '12.345' } })
+      fireEvent.click(screen.getByTestId('start-splice-btn'))
+
+      expect(screen.getByTestId('splice-validation-error')).toHaveTextContent(
+        /Fractional seconds can have at most 2 decimal places/i
+      )
+    })
   })
 
   describe('trigger call with correct payload', () => {
@@ -346,6 +358,61 @@ describe('SplicePanel', () => {
 
       expect(createSpy).toHaveBeenCalledTimes(2)
       expect(screen.getByTestId('splice-results')).toBeInTheDocument()
+    })
+
+    it('triggers POST with fractional seconds up to 2 decimals', async () => {
+      const createSpy = vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-fractional-1',
+        status: 'Pending',
+      })
+      vi.spyOn(spliceApi, 'getSpliceJob').mockImplementation(() => new Promise(() => {}))
+
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      const input = screen.getByTestId('splice-value-input')
+      fireEvent.change(input, { target: { value: '15.75' } })
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      expect(createSpy).toHaveBeenCalledWith(
+        'vid-ready-123',
+        { mode: 'ByLength', value: 15.75 },
+        expect.any(Object)
+      )
+    })
+
+    it('notifies onSplicingChange with true while active and false when finished', async () => {
+      vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-notify',
+        status: 'Pending',
+      })
+
+      vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+        id: 'job-notify',
+        status: 'Ready',
+        segments: [{ name: 'out.mp4', duration: 15, size: 5000 }],
+      })
+
+      const onSplicingChange = vi.fn()
+      render(<SplicePanel video={mockReadyVideo} onSplicingChange={onSplicingChange} />)
+
+      // Initially false
+      expect(onSplicingChange).toHaveBeenCalledWith(false)
+
+      const input = screen.getByTestId('splice-value-input')
+      fireEvent.change(input, { target: { value: '15' } })
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      // When triggering/polling, true is sent
+      expect(onSplicingChange).toHaveBeenCalledWith(true)
+
+      // When ready, false is sent
+      expect(onSplicingChange).toHaveBeenLastCalledWith(false)
     })
   })
 })

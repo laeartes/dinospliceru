@@ -145,4 +145,80 @@ describe('App', () => {
     const reopenedInput = screen.getByTestId('splice-value-input') as HTMLInputElement
     expect(reopenedInput.value).toBe('25')
   })
+
+  it('displays processing indicator on Splicer button when splicing is running in background', async () => {
+    class MockXHR {
+      upload = { onprogress: null }
+      status = 201
+      responseText = JSON.stringify({
+        id: 'app-bg-vid',
+        fileName: 'test.mkv',
+        sizeBytes: 1024,
+        status: 'Uploaded',
+      })
+      onload: (() => void) | null = null
+      open() {}
+      send() {
+        setTimeout(() => this.onload?.(), 0)
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', MockXHR)
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okResponse())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'app-bg-vid',
+            fileName: 'test.mkv',
+            contentType: 'video/x-matroska',
+            sizeBytes: 1024,
+            durationSeconds: 30.0,
+            resolution: { width: 1280, height: 720 },
+            codec: 'h264',
+            status: 'Ready',
+            createdAt: '2026-10-12T10:00:00Z',
+          }),
+      })
+      // createSpliceJob POST
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ jobId: 'bg-job-1', status: 'Pending' }),
+      })
+      // getSpliceJob GET
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ id: 'bg-job-1', status: 'Processing', segments: [] }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [new File(['x'], 'test.mkv', { type: 'video/x-matroska' })] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    const splicerBtn = await screen.findByTestId('open-splicer-btn')
+    fireEvent.click(splicerBtn)
+
+    // In Splicer screen, enter value and trigger
+    const valueInput = screen.getByTestId('splice-value-input')
+    fireEvent.change(valueInput, { target: { value: '10' } })
+
+    fireEvent.click(screen.getByTestId('start-splice-btn'))
+
+    // Click back to overview
+    const backBtn = await screen.findByTestId('splice-back-btn')
+    fireEvent.click(backBtn)
+
+    // Now on overview screen, the splicer button shows processing badge!
+    const overviewSplicerBtn = screen.getByTestId('open-splicer-btn')
+    expect(overviewSplicerBtn).toHaveTextContent('Splicer (processing...) ( •̀_•́ ) ✦')
+  })
 })

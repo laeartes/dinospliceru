@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import type { VideoResponse } from '../api/videoApi'
 import { type SpliceMode, type SpliceSegment } from '../api/spliceApi'
 import { useSpliceJob } from '../hooks/useSpliceJob'
@@ -13,9 +13,10 @@ import {
 interface SplicePanelProps {
   video: VideoResponse
   onBack?: () => void
+  onSplicingChange?: (isSplicing: boolean) => void
 }
 
-export default function SplicePanel({ video, onBack }: SplicePanelProps) {
+export default function SplicePanel({ video, onBack, onSplicingChange }: SplicePanelProps) {
   const [mode, setMode] = useState<SpliceMode>('ByLength')
   const [lengthUnit, setLengthUnit] = useState<LengthUnit>('s')
   const [sizeUnit, setSizeUnit] = useState<SizeUnit>('MB')
@@ -23,6 +24,18 @@ export default function SplicePanel({ video, onBack }: SplicePanelProps) {
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const { spliceState, startSplice, reset, retry } = useSpliceJob(video.id)
+
+  const isSplicing = spliceState.status === 'triggering' || spliceState.status === 'polling'
+
+  useEffect(() => {
+    onSplicingChange?.(isSplicing)
+  }, [isSplicing, onSplicingChange])
+
+  useEffect(() => {
+    return () => {
+      onSplicingChange?.(false)
+    }
+  }, [onSplicingChange])
 
   function handleModeChange(newMode: SpliceMode) {
     setMode(newMode)

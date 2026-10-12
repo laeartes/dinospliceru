@@ -25,6 +25,7 @@ export interface UseSpliceJobResult {
 
 const POLL_INTERVAL_MS = 2000
 const MAX_POLL_RETRIES = 3
+const POLL_TIMEOUT_MS = 60000
 
 export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
   const [spliceState, setSpliceState] = useState<SpliceJobState>({ status: 'idle' })
@@ -72,9 +73,18 @@ export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
   const pollStatus = useCallback((jobId: string, mode: SpliceMode, value: number) => {
     let active = true
     let consecutiveFailures = 0
+    const pollStartTime = Date.now()
 
     const check = async () => {
       try {
+        if (Date.now() - pollStartTime >= POLL_TIMEOUT_MS) {
+          setSpliceState({
+            status: 'error',
+            error: 'Splice job timed out after 1 minute (；´Д｀)',
+          })
+          return
+        }
+
         const job = await getSpliceJob(jobId)
         if (!active) return
 
@@ -110,6 +120,14 @@ export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
         pollTimerRef.current = setTimeout(check, POLL_INTERVAL_MS)
       } catch (err: unknown) {
         if (!active) return
+
+        if (Date.now() - pollStartTime >= POLL_TIMEOUT_MS) {
+          setSpliceState({
+            status: 'error',
+            error: 'Splice job timed out after 1 minute (；´Д｀)',
+          })
+          return
+        }
 
         consecutiveFailures += 1
         if (consecutiveFailures < MAX_POLL_RETRIES) {

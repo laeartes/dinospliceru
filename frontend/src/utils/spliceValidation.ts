@@ -16,22 +16,37 @@ export function parseTimeToSeconds(input: string, unit: LengthUnit): number | nu
   if (!trimmed) return null
 
   if (unit === 's') {
+    if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+      return null
+    }
     const num = Number(trimmed)
-    return isNaN(num) ? null : num
+    return isNaN(num) ? null : Math.round(num * 100) / 100
   }
 
   // mm:ss or m:ss or hh:mm:ss format
   const parts = trimmed.split(':')
   if (parts.length === 2) {
-    const mins = Number(parts[0])
-    const secs = Number(parts[1])
+    const minsStr = parts[0]
+    const secsStr = parts[1]
+    if (!/^\d+$/.test(minsStr)) return null
+    if (!/^\d+(\.\d{1,2})?$/.test(secsStr)) return null
+
+    const mins = Number(minsStr)
+    const secs = Number(secsStr)
     if (isNaN(mins) || isNaN(secs) || mins < 0 || secs < 0 || secs >= 60) return null
-    return mins * 60 + secs
+    return Math.round((mins * 60 + secs) * 100) / 100
   }
+
   if (parts.length === 3) {
-    const hours = Number(parts[0])
-    const mins = Number(parts[1])
-    const secs = Number(parts[2])
+    const hoursStr = parts[0]
+    const minsStr = parts[1]
+    const secsStr = parts[2]
+    if (!/^\d+$/.test(hoursStr) || !/^\d+$/.test(minsStr)) return null
+    if (!/^\d+(\.\d{1,2})?$/.test(secsStr)) return null
+
+    const hours = Number(hoursStr)
+    const mins = Number(minsStr)
+    const secs = Number(secsStr)
     if (
       isNaN(hours) ||
       isNaN(mins) ||
@@ -41,9 +56,10 @@ export function parseTimeToSeconds(input: string, unit: LengthUnit): number | nu
       mins >= 60 ||
       secs < 0 ||
       secs >= 60
-    )
+    ) {
       return null
-    return hours * 3600 + mins * 60 + secs
+    }
+    return Math.round((hours * 3600 + mins * 60 + secs) * 100) / 100
   }
 
   return null
@@ -73,12 +89,32 @@ export function validateSpliceParameters(
   sizeUnit: SizeUnit,
   video: VideoResponse
 ): { value: number; error: null } | { value: null; error: string } {
-  if (!rawInput.trim()) {
+  const trimmed = rawInput.trim()
+  if (!trimmed) {
     return { value: null, error: 'Please enter a splice segment value (；´Д｀)' }
   }
 
   if (mode === 'ByLength') {
-    const seconds = parseTimeToSeconds(rawInput, lengthUnit)
+    // Check if input has more than 2 decimal places to give a helpful message
+    if (lengthUnit === 's') {
+      if (/^\d+\.\d{3,}$/.test(trimmed)) {
+        return {
+          value: null,
+          error: 'Fractional seconds can have at most 2 decimal places (；´Д｀)',
+        }
+      }
+    } else {
+      const parts = trimmed.split(':')
+      const secsPart = parts[parts.length - 1]
+      if (parts.length >= 2 && /^\d+\.\d{3,}$/.test(secsPart)) {
+        return {
+          value: null,
+          error: 'Fractional seconds can have at most 2 decimal places (；´Д｀)',
+        }
+      }
+    }
+
+    const seconds = parseTimeToSeconds(trimmed, lengthUnit)
     if (seconds === null || seconds <= 0) {
       return {
         value: null,

@@ -10,11 +10,13 @@ function App() {
   const uploadConfig = useUploadConfig()
   const [readyVideo, setReadyVideo] = useState<VideoResponse | null>(null)
   const [currentView, setCurrentView] = useState<'overview' | 'splicer'>('overview')
+  const [isSplicing, setIsSplicing] = useState(false)
 
   const handleVideoReady = (video: VideoResponse | null) => {
     setReadyVideo(video)
     if (!video) {
       setCurrentView('overview')
+      setIsSplicing(false)
     }
   }
 
@@ -29,6 +31,7 @@ function App() {
                 config={uploadConfig.config}
                 onVideoReady={handleVideoReady}
                 onOpenSplicer={() => setCurrentView('splicer')}
+                isSplicing={isSplicing}
               />
             </div>
             {readyVideo && (
@@ -36,6 +39,7 @@ function App() {
                 <SplicePanel
                   video={readyVideo}
                   onBack={() => setCurrentView('overview')}
+                  onSplicingChange={setIsSplicing}
                 />
               </div>
             )}

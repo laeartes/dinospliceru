@@ -726,5 +726,76 @@ describe('VideoUploader', () => {
 
     vi.useRealTimers()
   })
+
+  it('renders processing indicator on Splicer button when isSplicing is true', async () => {
+    vi.useFakeTimers()
+    interface SimpleXhr {
+      status: number
+      responseText: string
+      upload: { onprogress: null }
+      onload: (() => void) | null
+      open: () => void
+      send: () => void
+    }
+    let capturedXhr: SimpleXhr | null = null
+
+    vi.stubGlobal(
+      'XMLHttpRequest',
+      vi.fn(function () {
+        const mock: SimpleXhr = {
+          status: 200,
+          responseText: '',
+          upload: { onprogress: null },
+          onload: null,
+          open: vi.fn(),
+          send: vi.fn(),
+        }
+        capturedXhr = mock
+        return mock
+      })
+    )
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          id: 'ready-splicing-vid',
+          fileName: 'clip.mp4',
+          contentType: 'video/mp4',
+          sizeBytes: 1024,
+          durationSeconds: 15.0,
+          resolution: { width: 1280, height: 720 },
+          codec: 'h264',
+          status: 'Ready',
+          createdAt: '2026-10-11T12:00:00Z',
+        }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<VideoUploader config={defaultConfig} isSplicing={true} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('clip.mp4', 'video/mp4')] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    await act(async () => {
+      if (capturedXhr) {
+        capturedXhr.status = 201
+        capturedXhr.responseText = JSON.stringify({
+          id: 'ready-splicing-vid',
+          fileName: 'clip.mp4',
+          sizeBytes: 1024,
+          status: 'Uploaded',
+        })
+        capturedXhr.onload?.()
+      }
+    })
+
+    const splicerBtn = screen.getByTestId('open-splicer-btn')
+    expect(splicerBtn).toHaveTextContent('Splicer (processing...) ( •̀_•́ ) ✦')
+
+    vi.useRealTimers()
+  })
 })
 
