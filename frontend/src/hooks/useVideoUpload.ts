@@ -29,14 +29,20 @@ export interface UseVideoUploadResult {
 }
 
 const POLL_INTERVAL_MS = 2000
+const MAX_POLL_RETRIES = 3
 
 export function useVideoUpload(): UseVideoUploadResult {
   const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle' })
   const abortControllerRef = useRef<AbortController | null>(null)
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activePollCleanupRef = useRef<(() => void) | null>(null)
   const lastFileRef = useRef<File | null>(null)
 
   const clearTimersAndControllers = useCallback(() => {
+    if (activePollCleanupRef.current) {
+      activePollCleanupRef.current()
+      activePollCleanupRef.current = null
+    }
     if (pollTimerRef.current) {
       clearTimeout(pollTimerRef.current)
       pollTimerRef.current = null
@@ -55,11 +61,14 @@ export function useVideoUpload(): UseVideoUploadResult {
 
   const pollStatus = useCallback((id: string, fileName: string, sizeBytes: number) => {
     let active = true
+    let consecutiveFailures = 0
 
     const check = async () => {
       try {
         const video = await getVideoStatus(id)
         if (!active) return
+
+        consecutiveFailures = 0
 
         if (video.status === 'Ready') {
           setUploadState({ status: 'ready', video })
@@ -89,6 +98,14 @@ export function useVideoUpload(): UseVideoUploadResult {
         pollTimerRef.current = setTimeout(check, POLL_INTERVAL_MS)
       } catch (err: unknown) {
         if (!active) return
+
+        consecutiveFailures += 1
+        if (consecutiveFailures < MAX_POLL_RETRIES) {
+          // Retry polling after standard interval instead of immediately failing
+          pollTimerRef.current = setTimeout(check, POLL_INTERVAL_MS)
+          return
+        }
+
         const message = err instanceof Error ? err.message : 'Failed to query video processing status'
         setUploadState({
           status: 'error',
@@ -147,7 +164,7 @@ export function useVideoUpload(): UseVideoUploadResult {
           videoStatus: initialStatus,
         })
 
-        pollStatus(response.id, response.fileName, response.sizeBytes)
+        activePollCleanupRef.current = pollStatus(response.id, response.fileName, response.sizeBytes)
       } catch (err: unknown) {
         if (controller.signal.aborted) return
         const message = err instanceof Error ? err.message : 'Upload failed'

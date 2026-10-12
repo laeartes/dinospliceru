@@ -179,6 +179,48 @@ describe('useVideoUpload', () => {
     })
   })
 
+  it('retries polling on transient errors before failing', async () => {
+    vi.spyOn(videoApi, 'uploadVideo').mockResolvedValue({
+      id: 'retry-video-id',
+      fileName: 'retry.mp4',
+      sizeBytes: 1000,
+      status: 'Uploaded',
+    })
+
+    const getStatusSpy = vi.spyOn(videoApi, 'getVideoStatus')
+      .mockRejectedValueOnce(new Error('Transient 500'))
+      .mockResolvedValueOnce({
+        id: 'retry-video-id',
+        fileName: 'retry.mp4',
+        contentType: 'video/mp4',
+        sizeBytes: 1000,
+        durationSeconds: 10,
+        resolution: { width: 1920, height: 1080 },
+        codec: 'h264',
+        status: 'Ready',
+        createdAt: '2026-10-11T12:00:00Z',
+      })
+
+    const { result } = renderHook(() => useVideoUpload())
+    const file = new File(['data'], 'retry.mp4', { type: 'video/mp4' })
+
+    await act(async () => {
+      await result.current.startUpload(file)
+    })
+
+    // After first poll fails, status should still be polling (not error)
+    expect(result.current.uploadState.status).toBe('polling')
+    expect(getStatusSpy).toHaveBeenCalledTimes(1)
+
+    // Advance 2 seconds: retry poll should occur and succeed with Ready
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+
+    expect(result.current.uploadState.status).toBe('ready')
+    expect(getStatusSpy).toHaveBeenCalledTimes(2)
+  })
+
   it('resets state back to idle on reset()', async () => {
     vi.spyOn(videoApi, 'uploadVideo').mockRejectedValue(new Error('Failed'))
 
