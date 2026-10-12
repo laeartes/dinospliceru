@@ -269,10 +269,16 @@ function VideoUploader({ config, onFileSelect }: VideoUploaderProps) {
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-mono">
               <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
               <span data-testid="video-processing-status">
-                Status: {uploadState.videoStatus} (extracting metadata...)
+                {uploadState.videoStatus === 'Uploaded'
+                  ? 'Status: Uploaded (queued for processing...)'
+                  : 'Status: Processing (extracting metadata...)'}
               </span>
             </div>
-            <p className="text-xs font-mono text-slate-400">Analyzing frame & stream parameters...</p>
+            <p className="text-xs font-mono text-slate-400">
+              {uploadState.videoStatus === 'Uploaded'
+                ? 'Waiting in queue for media worker...'
+                : 'Analyzing frame & stream parameters...'}
+            </p>
           </div>
         )}
 
