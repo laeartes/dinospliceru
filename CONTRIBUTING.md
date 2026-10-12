@@ -76,7 +76,7 @@ All branches must be created from `main` and strictly follow the format below in
 * **Pre-Merge Checklist:**
   * No merge conflicts with `main`.
   * Backend passes: `dotnet test` and `dotnet format --verify-no-changes`.
-  * Frontend passes: `npm test`, `npm run lint`, and `npm run build`.
+  * Frontend passes: `npm run test:run`, `npm run lint`, and `npm run build` (run from `frontend/`).
 * **Merge Method:** Once approved and CI checks pass, merge via GitHub using **Squash and merge**. Ensure the squashed commit title follows the Conventional Commits format and references the PR number.
 ---
 
@@ -98,36 +98,37 @@ All branches must be created from `main` and strictly follow the format below in
 
 ### Frontend 
 * **File Naming:** PascalCase for React components (`TimelineTrack.tsx`), camelCase for utilities/hooks (`useScrubber.ts`).
-* **Linting:** Ensure `npm run lint` passes with zero errors before opening a PR.
+* **Linting:** Ensure `npm run lint` passes with zero errors before opening a PR (run inside `frontend/`).
 * **Component Boundaries:** Keep heavy computations and canvas/timeline rendering decoupled from unnecessary React re-renders.
 
 ---
 
 ## 6. Testing Requirements
 
-* **Backend Testing:**
-  * Built using **xUnit** and **FluentAssertions**.
-  * Test projects reside in the `tests/` directory mirroring source structure.
-  * Use the standard naming pattern: `UnitOfWork_StateUnderTest_ExpectedBehavior`.
-    * *Example:* `SplitClip_InvalidTimestamp_ThrowsArgumentException`
-  * Run the full test suite before pushing:
-    ```bash
-    dotnet test
-    ```    
-* **Frontend Testing:**
-  * Place all unit and component tests in the `tests/` directory, mirroring the `src/` folder structure, using the `.test.tsx` or `.test.ts` extension (e.g., `tests/components/TimelineTrack.test.tsx` for `src/components/TimelineTrack.tsx`).
-  * Run frontend tests locally:
-    ```bash
-    npm test
-    ```
-  * Run frontend tests once (non-watch mode, useful for CI):
-    ```bash
-    npm run test:run
-    ```
-  * Optionally, run tests with an interactive browser UI:
-    ```bash
-    npm run test:ui
-    ```
+### Backend Testing
+* Built using **xUnit** and **FluentAssertions**.
+* Test projects reside in the `tests/` directory mirroring source structure.
+* Use the standard naming pattern: `UnitOfWork_StateUnderTest_ExpectedBehavior`.
+  * *Example:* `SplitClip_InvalidTimestamp_ThrowsArgumentException`
+* Run the full test suite before pushing:
+  ```bash
+  dotnet test
+  ```    
+
+### Frontend Testing
+* Place all unit and component tests in the `frontend/tests/` directory, mirroring the `frontend/src/` folder structure, using the `.test.tsx` or `.test.ts` extension (e.g., `frontend/tests/components/TimelineTrack.test.tsx` for `frontend/src/components/TimelineTrack.tsx`).
+* Run frontend tests locally from the `frontend/` directory:
+  ```bash
+  npm test
+  ```
+* Run frontend tests once (non-watch mode, useful for CI):
+  ```bash
+  npm run test:run
+  ```
+* Optionally, run tests with an interactive browser UI:
+  ```bash
+  npm run test:ui
+  ```
 * **Test Media and Generated Files:**
   * Alongside the test projects, the `tests/` directory contains dedicated directories for shared test media and generated files.
   * Small media fixtures required by automated tests may be stored in `tests/assets/` and committed to the repository.

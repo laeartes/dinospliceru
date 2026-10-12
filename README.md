@@ -98,6 +98,8 @@
 
 ### Frontend
 
+Runs on `http://localhost:5173` by default and connects to the backend at `http://localhost:5175`. Set `VITE_API_BASE_URL` in `frontend/.env.local` to change this.
+
 ```bash
 # Navigate to the frontend directory
 cd frontend
@@ -105,7 +107,7 @@ cd frontend
 # Install dependencies
 npm install
 
-# Run dev server
+# Run dev server (http://localhost:5173)
 npm run dev
 
 # Build for production
@@ -123,13 +125,15 @@ npm run lint
 
 ### Backend
 
+Runs on `http://localhost:5175` (HTTP) and `https://localhost:7059` (HTTPS). In `Development` mode, CORS is configured to allow requests from `http://localhost:5173`.
+
 ```bash
 # Run these commands from the repository root
 
 # Build all projects
 dotnet build
 
-# Run API server
+# Run API server (http://localhost:5175)
 dotnet run --project src/DinoSplicer.Api
 
 # Run tests
@@ -145,6 +149,12 @@ dotnet format
 
 # Start a local PostgreSQL instance (first time, or after removing the container)
 docker run --name dinosplicer-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=dinosplicer -p 5432:5432 -d postgres:18-alpine
+
+# Restart an existing stopped container
+docker start dinosplicer-postgres
+
+# Install the EF Core CLI tool if not already installed
+dotnet tool install --global dotnet-ef
 
 # Apply migrations (creates the videos table, etc.)
 dotnet ef database update --project src/DinoSplicer.Api --startup-project src/DinoSplicer.Api
