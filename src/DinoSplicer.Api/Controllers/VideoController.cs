@@ -99,6 +99,18 @@ public class VideoController(
             db.Videos.Add(video);
             await db.SaveChangesAsync(cancellationToken);
         }
+        catch (Exception ex) when (ex is Microsoft.EntityFrameworkCore.DbUpdateException
+                                or Npgsql.NpgsqlException
+                                or System.Net.Sockets.SocketException
+                                or System.IO.IOException)
+        {
+            System.IO.File.Delete(fullPath);
+            return Problem(
+                title: "Database error",
+                detail: "Couldn't connect to database or save video record. Please ensure the database is running and migrations are applied.",
+                statusCode: StatusCodes.Status500InternalServerError
+            );
+        }
         catch
         {
             System.IO.File.Delete(fullPath);

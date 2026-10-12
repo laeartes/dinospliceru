@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import VideoUploader from '../../src/components/VideoUploader'
 import type { VideoUploadConfig } from '../../src/api/configApi'
@@ -314,4 +314,259 @@ describe('VideoUploader', () => {
 
     expect(screen.getByTestId('file-name')).toHaveTextContent('clip.mkv')
   })
+
+  it('updates progress bar on simulated onUploadProgress events', async () => {
+    interface ProgressXhrMock {
+      upload: { onprogress: ((e: ProgressEvent) => void) | null }
+      open: () => void
+      send: () => void
+      abort: () => void
+      addEventListener: () => void
+      removeEventListener: () => void
+    }
+
+    let capturedXhr: ProgressXhrMock | null = null
+
+    function createProgressMock(): ProgressXhrMock {
+      const mock: ProgressXhrMock = {
+        upload: { onprogress: null },
+        open: vi.fn(),
+        send: vi.fn(),
+        abort: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      capturedXhr = mock
+      return mock
+    }
+
+    vi.stubGlobal('XMLHttpRequest', vi.fn(function () {
+      return createProgressMock()
+    }))
+
+    render(<VideoUploader config={defaultConfig} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('test.mp4', 'video/mp4')] } })
+
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.getByTestId('upload-progress-percent')).toHaveTextContent('0%')
+
+    act(() => {
+      capturedXhr?.upload.onprogress?.({
+        lengthComputable: true,
+        loaded: 65,
+        total: 100,
+      } as ProgressEvent)
+    })
+
+    expect(screen.getByTestId('upload-progress-percent')).toHaveTextContent('65%')
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '65')
+  })
+
+  it('shows uploaded/processing state and updates to Ready on polled status change without manual refresh', async () => {
+    vi.useFakeTimers()
+
+    interface PollingXhrMock {
+      status: number
+      responseText: string
+      upload: { onprogress: null }
+      onload: (() => void) | null
+      open: () => void
+      abort: () => void
+      addEventListener: () => void
+      removeEventListener: () => void
+      send: () => void
+    }
+
+    let capturedXhr: PollingXhrMock | null = null
+
+    function createPollingMock(): PollingXhrMock {
+      const mock: PollingXhrMock = {
+        status: 200,
+        responseText: '',
+        upload: { onprogress: null },
+        onload: null,
+        open: vi.fn(),
+        abort: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        send: vi.fn(),
+      }
+      capturedXhr = mock
+      return mock
+    }
+
+    vi.stubGlobal('XMLHttpRequest', vi.fn(function () {
+      return createPollingMock()
+    }))
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          id: 'vid-123',
+          fileName: 'movie.mp4',
+          contentType: 'video/mp4',
+          sizeBytes: 2048,
+          durationSeconds: null,
+          resolution: null,
+          codec: null,
+          status: 'Processing',
+          createdAt: '2026-10-11T12:00:00Z',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({
+          id: 'vid-123',
+          fileName: 'movie.mp4',
+          contentType: 'video/mp4',
+          sizeBytes: 2048,
+          durationSeconds: 120.4,
+          resolution: { width: 1920, height: 1080 },
+          codec: 'h264',
+          status: 'Ready',
+          createdAt: '2026-10-11T12:00:00Z',
+        }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<VideoUploader config={defaultConfig} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('movie.mp4', 'video/mp4', 2048)] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    // Trigger upload success
+    await act(async () => {
+      if (capturedXhr) {
+        capturedXhr.status = 201
+        capturedXhr.responseText = JSON.stringify({
+          id: 'vid-123',
+          fileName: 'movie.mp4',
+          sizeBytes: 2048,
+          status: 'Uploaded',
+        })
+        capturedXhr.onload?.()
+      }
+    })
+
+    // First status poll returned Processing
+    expect(screen.getByTestId('video-processing-status')).toHaveTextContent(/Processing/i)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Advance 2 seconds for next poll iteration
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+
+    // Updates to Ready automatically
+    expect(screen.getByTestId('video-ready-status')).toHaveTextContent(/Ready/i)
+    expect(screen.getByTestId('ready-duration')).toHaveTextContent('2:00 (120.4s)')
+    expect(screen.getByTestId('ready-resolution')).toHaveTextContent('1920x1080')
+    expect(screen.getByTestId('ready-codec')).toHaveTextContent('h264')
+
+    // Polling stops once status is Ready
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    vi.useRealTimers()
+  })
+
+  it('handles failure path and shows error state without crashing', async () => {
+    vi.useFakeTimers()
+
+    interface FailXhrMock {
+      status: number
+      responseText: string
+      upload: { onprogress: null }
+      onload: (() => void) | null
+      open: () => void
+      abort: () => void
+      addEventListener: () => void
+      removeEventListener: () => void
+      send: () => void
+    }
+
+    let capturedXhr: FailXhrMock | null = null
+
+    function createFailMock(): FailXhrMock {
+      const mock: FailXhrMock = {
+        status: 200,
+        responseText: '',
+        upload: { onprogress: null },
+        onload: null,
+        open: vi.fn(),
+        abort: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        send: vi.fn(),
+      }
+      capturedXhr = mock
+      return mock
+    }
+
+    vi.stubGlobal('XMLHttpRequest', vi.fn(function () {
+      return createFailMock()
+    }))
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        id: 'vid-fail',
+        fileName: 'broken.mp4',
+        contentType: 'video/mp4',
+        sizeBytes: 1024,
+        durationSeconds: null,
+        resolution: null,
+        codec: null,
+        status: 'Failed',
+        createdAt: '2026-10-11T12:00:00Z',
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<VideoUploader config={defaultConfig} />)
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('broken.mp4', 'video/mp4')] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    await act(async () => {
+      if (capturedXhr) {
+        capturedXhr.status = 201
+        capturedXhr.responseText = JSON.stringify({
+          id: 'vid-fail',
+          fileName: 'broken.mp4',
+          sizeBytes: 1024,
+          status: 'Uploaded',
+        })
+        capturedXhr.onload?.()
+      }
+    })
+
+    expect(screen.getByTestId('video-failed-status')).toHaveTextContent(/Failed/i)
+    expect(screen.getByText(/processing failed on the server/i)).toBeInTheDocument()
+
+    // Polling stops once Failed
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    // Can click choose another file to return to dropzone
+    fireEvent.click(screen.getByRole('button', { name: /choose another file/i }))
+    expect(screen.getByText(/drag & drop your video here/i)).toBeInTheDocument()
+
+    vi.useRealTimers()
+  })
 })
+

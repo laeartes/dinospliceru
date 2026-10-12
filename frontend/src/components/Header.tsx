@@ -4,7 +4,11 @@ function Header() {
       <div className="mx-auto flex max-w-5xl items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-6 w-2 bg-cyber-teal" aria-hidden="true" />
-          <div className="flex items-center gap-2">
+          <a
+            href="/"
+            className="flex items-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal transition-opacity hover:opacity-85"
+            aria-label="dinospliceru home"
+          >
             <span className="text-xl font-bold tracking-tight text-cyber-dark">
               dinospliceru
             </span>
@@ -12,7 +16,7 @@ function Header() {
             <span className="hidden sm:inline border border-cyber-border px-2 py-0.5 text-xs font-mono text-slate-500">
               [ online (｡•̀ᴗ-)✧ ]
             </span>
-          </div>
+          </a>
         </div>
 
         <nav className="flex items-center gap-3" aria-label="External links">
