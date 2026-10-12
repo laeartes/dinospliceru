@@ -96,7 +96,17 @@
 
 ## Running the Program
 
+### Ports and Local Setup Summary
+
+| Service | Where it runs | What it does / Connects to |
+|---|---|---|
+| **Frontend** (Vite / React) | `http://localhost:5173` | Calls backend at `http://localhost:5175`. (Set `VITE_API_BASE_URL` in `frontend/.env.local` to change this). |
+| **Backend** (ASP.NET Core) | `http://localhost:5175` | API server. Allows requests from `http://localhost:5173` via CORS in `Development` mode. |
+| **Database** (PostgreSQL) | `localhost:5432` | Local database container (`user: postgres`, `password: postgres`, `db: dinosplicer`). |
+
 ### Frontend
+
+Runs on `http://localhost:5173`.
 
 ```bash
 # Navigate to the frontend directory
@@ -105,7 +115,7 @@ cd frontend
 # Install dependencies
 npm install
 
-# Run dev server
+# Run dev server (http://localhost:5173)
 npm run dev
 
 # Build for production
@@ -123,13 +133,15 @@ npm run lint
 
 ### Backend
 
+Runs on `http://localhost:5175`.
+
 ```bash
 # Run these commands from the repository root
 
 # Build all projects
 dotnet build
 
-# Run API server
+# Run API server (http://localhost:5175)
 dotnet run --project src/DinoSplicer.Api
 
 # Run tests
@@ -145,6 +157,12 @@ dotnet format
 
 # Start a local PostgreSQL instance (first time, or after removing the container)
 docker run --name dinosplicer-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=dinosplicer -p 5432:5432 -d postgres:18-alpine
+
+# Restart an existing stopped container
+docker start dinosplicer-postgres
+
+# Install the EF Core CLI tool if not already installed
+dotnet tool install --global dotnet-ef
 
 # Apply migrations (creates the videos table, etc.)
 dotnet ef database update --project src/DinoSplicer.Api --startup-project src/DinoSplicer.Api
