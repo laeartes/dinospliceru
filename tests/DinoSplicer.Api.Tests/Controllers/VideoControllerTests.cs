@@ -5,6 +5,7 @@ using System.Text.Json;
 
 using DinoSplicer.Api.Data;
 using DinoSplicer.Api.Models;
+using DinoSplicer.Api.Services;
 
 using FluentAssertions;
 
@@ -241,6 +242,36 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
     }
 
     [Fact]
+    public async Task Delete_VideoIsBeingSpliced_Returns409AndKeepsRowAndFile()
+    {
+        Video video = await SeedVideoAsync(VideoStatus.Ready);
+        await SeedSpliceJobAsync(video.Id, SpliceJobStatus.Processing);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
+        File.Exists(GetFilePath(video)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_VideoWithSplicedSegments_Returns204AndRemovesSegmentFiles()
+    {
+        Video video = await SeedVideoAsync(VideoStatus.Ready);
+        SpliceJob job = await SeedSpliceJobAsync(video.Id, SpliceJobStatus.Ready);
+        string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(factory.StorageDirectory, job.Id);
+        Directory.CreateDirectory(outputDirectory);
+        await File.WriteAllBytesAsync(Path.Combine(outputDirectory, "segment_000.mp4"), new byte[SeededFileSizeBytes]);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        Directory.Exists(outputDirectory).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Upload_ValidVideoFile_BackgroundWorkerExtractsMetadataAndSetsReadyStatus()
     {
         string fixturePath = Path.Combine(AppContext.BaseDirectory, "assets", "sample_320x240.mp4");
@@ -365,6 +396,24 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         await db.SaveChangesAsync();
 
         return video;
+    }
+
+    private async Task<SpliceJob> SeedSpliceJobAsync(Guid videoId, SpliceJobStatus status)
+    {
+        SpliceJob job = new()
+        {
+            SourceVideoId = videoId,
+            Mode = SpliceMode.ByLength,
+            SegmentValue = 5,
+            Status = status,
+        };
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.SpliceJobs.Add(job);
+        await db.SaveChangesAsync();
+
+        return job;
     }
 
     private async Task<bool> VideoExistsInDbAsync(Guid id)
