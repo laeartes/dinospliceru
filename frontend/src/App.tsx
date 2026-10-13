@@ -1,16 +1,50 @@
+import { useState } from 'react'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import VideoUploader from './components/VideoUploader'
+import SplicePanel from './components/SplicePanel'
 import { useUploadConfig } from './hooks/useUploadConfig'
+import type { VideoResponse } from './api/videoApi'
 
 function App() {
   const uploadConfig = useUploadConfig()
+  const [readyVideo, setReadyVideo] = useState<VideoResponse | null>(null)
+  const [currentView, setCurrentView] = useState<'overview' | 'splicer'>('overview')
+  const [isSplicing, setIsSplicing] = useState(false)
+
+  const handleVideoReady = (video: VideoResponse | null) => {
+    setReadyVideo(video)
+    if (!video) {
+      setCurrentView('overview')
+      setIsSplicing(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-cyber-bg text-cyber-dark">
       <Header />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-12">
-        {uploadConfig.status === 'ready' && <VideoUploader config={uploadConfig.config} />}
+        {uploadConfig.status === 'ready' && (
+          <>
+            <div className={currentView === 'overview' ? 'block' : 'hidden'}>
+              <VideoUploader
+                config={uploadConfig.config}
+                onVideoReady={handleVideoReady}
+                onOpenSplicer={() => setCurrentView('splicer')}
+                isSplicing={isSplicing}
+              />
+            </div>
+            {readyVideo && (
+              <div className={currentView === 'splicer' ? 'block' : 'hidden'}>
+                <SplicePanel
+                  video={readyVideo}
+                  onBack={() => setCurrentView('overview')}
+                  onSplicingChange={setIsSplicing}
+                />
+              </div>
+            )}
+          </>
+        )}
 
         {uploadConfig.status === 'loading' && (
           <div
