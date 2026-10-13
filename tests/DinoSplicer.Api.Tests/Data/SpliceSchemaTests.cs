@@ -117,7 +117,7 @@ public class SpliceSchemaTests : IClassFixture<VideoApiFactory>
             db,
             "SELECT column_name::text FROM information_schema.columns WHERE table_name = 'splice_jobs'");
 
-        columns.Should().BeEquivalentTo("id", "source_video_id", "mode", "segment_value", "status", "created_at");
+        columns.Should().BeEquivalentTo("id", "source_video_id", "mode", "segment_value", "status", "error_message", "created_at");
     }
 
     [Fact]

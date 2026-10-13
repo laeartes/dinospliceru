@@ -36,6 +36,11 @@ namespace DinoSplicer.Api.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("error_message");
+
                     b.Property<string>("Mode")
                         .IsRequired()
                         .HasMaxLength(20)

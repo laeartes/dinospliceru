@@ -79,6 +79,9 @@ public class AppDbContext : DbContext
                 .HasConversion<string>()
                 .HasMaxLength(20);
 
+            entity.Property(j => j.ErrorMessage)
+                .HasMaxLength(500);
+
             entity.Property(j => j.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("now()");
