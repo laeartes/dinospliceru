@@ -108,14 +108,12 @@ public class SpliceProcessingWorker(
 
         try
         {
-            IReadOnlyList<SpliceSegment> segments = await VideoSplicer.Splice(
-                sourcePath: Path.Combine(storageDirectory, video.FileName),
-                outputDirectory: outputDirectory,
-                mode: job.Mode,
-                value: job.SegmentValue,
-                overwriteExisting: resuming,
-                cancellationToken: cancellationToken
-            );
+            string sourcePath = Path.Combine(storageDirectory, video.FileName);
+
+            
+            IReadOnlyList<SpliceSegment> segments = resuming
+                ? await VideoSplicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, overwriteExisting: true, cancellationToken: cancellationToken)
+                : await VideoSplicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, cancellationToken: cancellationToken);
 
             string baseName = Path.GetFileNameWithoutExtension(video.OriginalFileName);
             foreach (SpliceSegment segment in segments)
