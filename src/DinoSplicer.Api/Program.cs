@@ -41,6 +41,10 @@ builder.Services.AddSingleton<VideoProcessingQueue>();
 builder.Services.AddSingleton<IVideoMetadataExtractor>(_ => new FFProbeVideoMetadataExtractor());
 builder.Services.AddHostedService<VideoProcessingWorker>();
 
+// Splicing runs in the background as well; clients poll the job status
+builder.Services.AddSingleton<SpliceJobQueue>();
+builder.Services.AddHostedService<SpliceProcessingWorker>();
+
 builder.Services.AddControllers();
 
 // Local development CORS policy (Vite frontend)

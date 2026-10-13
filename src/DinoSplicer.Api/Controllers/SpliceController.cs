@@ -8,7 +8,7 @@ namespace DinoSplicer.Api.Controllers;
 
 [ApiController]
 [Route("api/videos/{id:guid}/splice")]
-public class SpliceController(AppDbContext db) : ControllerBase
+public class SpliceController(AppDbContext db, SpliceJobQueue spliceQueue) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> CreateSplice(Guid id, SpliceRequest request, CancellationToken cancellationToken)
@@ -48,7 +48,8 @@ public class SpliceController(AppDbContext db) : ControllerBase
         db.SpliceJobs.Add(job);
         await db.SaveChangesAsync(cancellationToken);
 
-        // Processing is not started here; the splice worker will pick up Pending jobs
+        await spliceQueue.EnqueueAsync(job.Id, CancellationToken.None);
+
         return Accepted(SpliceJobResponse.FromJob(job));
     }
 }
