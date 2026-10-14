@@ -45,6 +45,18 @@ public class VideoSplicerTests : IDisposable
     }
 
     [Fact]
+    public async Task Splice_BySizeOnLowBitrateVideo_KeepsEverySegmentUnderTheLimit()
+    {
+        string sourcePath = await SampleVideo.GetLowBitratePathAsync();
+        long limit = new FileInfo(sourcePath).Length / 3;
+
+        IReadOnlyList<SpliceSegment> segments = await VideoSplicer.Splice(sourcePath, _outputDirectory, SpliceMode.BySize, limit);
+
+        segments.Should().HaveCountGreaterThanOrEqualTo(3);
+        segments.Should().AllSatisfy(s => s.SizeBytes.Should().BeLessThanOrEqualTo(limit));
+    }
+
+    [Fact]
     public async Task Splice_OnlyRequiredArguments_DoesNotOverwriteExistingOutput()
     {
         string sourcePath = await SampleVideo.GetPathAsync();

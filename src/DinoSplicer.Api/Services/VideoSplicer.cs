@@ -8,7 +8,11 @@ namespace DinoSplicer.Api.Services;
 
 public static class VideoSplicer
 {
-    // Packet sizes leave out container headers, so size-based segments are planned slightly under the limit
+    // Each packet also costs an entry in the container's index (about 15 bytes in MP4). On low-bitrate videos,
+    // where packets are only a few hundred bytes, that adds up to several percent of the file.
+    private const int PacketOverheadBytes = 16;
+
+    // The remaining margin covers the fixed headers at the start of every segment
     private const double SizeBudgetFactor = 0.97;
 
     private const string SegmentListFileName = "segments.csv";
@@ -71,7 +75,7 @@ public static class VideoSplicer
             }
 
             seenKeyframe |= isKeyframe;
-            stretches[^1] = (stretches[^1].Start, stretches[^1].Bytes + size);
+            stretches[^1] = (stretches[^1].Start, stretches[^1].Bytes + size + PacketOverheadBytes);
         }
 
         long budget = (long)(maxBytes * SizeBudgetFactor);

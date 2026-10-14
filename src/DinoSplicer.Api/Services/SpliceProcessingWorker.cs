@@ -110,7 +110,8 @@ public class SpliceProcessingWorker(
         {
             string sourcePath = Path.Combine(storageDirectory, video.FileName);
 
-            
+
+
             IReadOnlyList<SpliceSegment> segments = resuming
                 ? await VideoSplicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, overwriteExisting: true, cancellationToken: cancellationToken)
                 : await VideoSplicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, cancellationToken: cancellationToken);
