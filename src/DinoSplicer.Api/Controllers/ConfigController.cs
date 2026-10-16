@@ -7,7 +7,7 @@ namespace DinoSplicer.Api.Controllers;
 
 [ApiController]
 [Route("api/config")]
-public class ConfigController(IOptions<VideoUploadOptions> uploadOptions) : ControllerBase
+public class ConfigController(IOptions<VideoUploadOptions> uploadOptions) : ApiControllerBase
 {
     // Uses IOptions like VideoController, so the values returned here are always the ones upload validation enforces
     [HttpGet]

@@ -42,8 +42,7 @@ public class SpliceJobsControllerTests(VideoApiFactory factory) : IClassFixture<
 
         HttpResponseMessage response = await client.GetAsync(JobUrl(Guid.NewGuid()));
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("Splice job not found");
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.NotFound, ApiErrorCodes.SpliceJobNotFound);
     }
 
     [Fact]

@@ -7,7 +7,7 @@ namespace DinoSplicer.Api.Controllers;
 
 [ApiController]
 [Route("api/splice-jobs")]
-public class SpliceJobsController(AppDbContext db) : ControllerBase
+public class SpliceJobsController(AppDbContext db) : ApiControllerBase
 {
     // Status only for now; the output segments are added to this response in #33
     [HttpGet("{id:guid}")]
@@ -16,10 +16,10 @@ public class SpliceJobsController(AppDbContext db) : ControllerBase
         SpliceJob? job = await db.SpliceJobs.FindAsync([id], cancellationToken);
         if (job is null)
         {
-            return Problem(
-                title: "Splice job not found",
-                detail: $"No splice job with id '{id}' exists.",
-                statusCode: StatusCodes.Status404NotFound
+            return ApiErrorResult(
+                StatusCodes.Status404NotFound,
+                $"No splice job with id '{id}' exists.",
+                ApiErrorCodes.SpliceJobNotFound
             );
         }
 

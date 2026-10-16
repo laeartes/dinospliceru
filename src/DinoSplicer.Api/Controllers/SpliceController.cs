@@ -8,7 +8,7 @@ namespace DinoSplicer.Api.Controllers;
 
 [ApiController]
 [Route("api/videos/{id:guid}/splice")]
-public class SpliceController(AppDbContext db, SpliceJobQueue spliceQueue) : ControllerBase
+public class SpliceController(AppDbContext db, SpliceJobQueue spliceQueue) : ApiControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> CreateSplice(Guid id, SpliceRequest request, CancellationToken cancellationToken)
@@ -16,27 +16,26 @@ public class SpliceController(AppDbContext db, SpliceJobQueue spliceQueue) : Con
         Video? video = await db.Videos.FindAsync([id], cancellationToken);
         if (video is null)
         {
-            return Problem(
-                title: "Video not found",
-                detail: $"No video with id '{id}' exists.",
-                statusCode: StatusCodes.Status404NotFound
+            return ApiErrorResult(
+                StatusCodes.Status404NotFound,
+                $"No video with id '{id}' exists.",
+                ApiErrorCodes.VideoNotFound
             );
         }
 
         if (video.Status != VideoStatus.Ready)
         {
-            return Problem(
-                title: "Video is not ready",
-                detail: $"The video is {video.Status}; it must be Ready before it can be spliced.",
-                statusCode: StatusCodes.Status409Conflict
+            return ApiErrorResult(
+                StatusCodes.Status409Conflict,
+                $"The video is {video.Status}; it must be Ready before it can be spliced.",
+                ApiErrorCodes.VideoNotReady
             );
         }
 
         string? valueError = SpliceRequestValidator.Validate(request.Mode, request.Value, video);
         if (valueError is not null)
         {
-            ModelState.AddModelError(nameof(SpliceRequest.Value), valueError);
-            return ValidationProblem(ModelState);
+            return ApiErrorResult(StatusCodes.Status400BadRequest, valueError, ApiErrorCodes.InvalidSpliceValue);
         }
 
         SpliceJob job = new()

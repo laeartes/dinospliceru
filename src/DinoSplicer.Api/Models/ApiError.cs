@@ -1,6 +1,6 @@
 namespace DinoSplicer.Api.Models;
 
-// Error shape: { "error": "...", "code", "..." }
+// Error shape: { "error": "...", "code": "..." }
 public record ApiError(string Error, string Code)
 {
     public static ApiError ForStatusCode(int statusCode)
