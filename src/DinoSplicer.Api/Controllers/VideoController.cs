@@ -4,6 +4,7 @@ using DinoSplicer.Api.Models;
 using DinoSplicer.Api.Services;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DinoSplicer.Api.Controllers;
@@ -154,6 +155,20 @@ public class VideoController(
             );
         }
 
+        List<SpliceJob> spliceJobs = await db.SpliceJobs
+            .Where(j => j.SourceVideoId == id)
+            .ToListAsync(cancellationToken);
+
+        // Same reason as above: FFmpeg reads the video while splicing it
+        if (spliceJobs.Any(j => j.Status == SpliceJobStatus.Processing))
+        {
+            return Problem(
+                title: "Video is being spliced",
+                detail: "The video cannot be deleted while it is being spliced. Try again once splicing has finished.",
+                statusCode: StatusCodes.Status409Conflict
+            );
+        }
+
         // Remove the DB row first: if the file delete then fails we are left with an orphan file,
         // which is harmless, instead of a row pointing at a file that no longer exists
         db.Videos.Remove(video);
@@ -166,6 +181,16 @@ public class VideoController(
         if (System.IO.File.Exists(fullPath))
         {
             System.IO.File.Delete(fullPath);
+        }
+
+        // The database deletes the splice jobs together with the video, their segment files are removed here
+        foreach (SpliceJob job in spliceJobs)
+        {
+            string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(storageDirectory, job.Id);
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, recursive: true);
+            }
         }
 
         return NoContent();

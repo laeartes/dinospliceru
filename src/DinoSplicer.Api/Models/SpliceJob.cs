@@ -20,6 +20,10 @@ public class SpliceJob
     [EnumDataType(typeof(SpliceJobStatus))]
     public SpliceJobStatus Status { get; set; } = SpliceJobStatus.Pending;
 
+    // Set when Status is Failed
+    [MaxLength(500)]
+    public string? ErrorMessage { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<SpliceOutput> Outputs { get; set; } = [];
