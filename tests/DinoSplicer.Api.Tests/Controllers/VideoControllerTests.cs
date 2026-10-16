@@ -123,7 +123,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload());
 
-        await response.ShouldBeApiErrorAsync(HttpStatusCode.BadRequest, ApiErrorCodes.InvalidFileCount);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.BadRequest, ApiErrorCodes.ValidationFailed);
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using DinoSplicer.Api.Services;
 using FFMpegCore;
 
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -45,7 +46,21 @@ builder.Services.AddHostedService<VideoProcessingWorker>();
 builder.Services.AddSingleton<SpliceJobQueue>();
 builder.Services.AddHostedService<SpliceProcessingWorker>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        string message = context.ModelState.Values
+            .SelectMany(entry => entry.Errors)
+            .Select(error => error.ErrorMessage)
+            .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text))
+            ?? "The request is invalid.";
+
+        return new BadRequestObjectResult(new ApiError(message, ApiErrorCodes.ValidationFailed));
+    };
+
+    options.SuppressMapClientErrors = true;
+});
 
 // Local development CORS policy (Vite frontend)
 if (builder.Environment.IsDevelopment())
@@ -63,6 +78,18 @@ if (builder.Environment.IsDevelopment())
 }
 
 WebApplication app = builder.Build();
+
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await context.Response.WriteAsJsonAsync(ApiError.ForStatusCode(StatusCodes.Status500InternalServerError));
+}));
+
+app.UseStatusCodePages(async statusCodeContext =>
+{
+    HttpResponse response = statusCodeContext.HttpContext.Response;
+    await response.WriteAsJsonAsync(ApiError.ForStatusCode(response.StatusCode));
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
