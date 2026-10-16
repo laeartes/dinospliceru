@@ -1,4 +1,5 @@
 import { apiUrl } from './apiClient'
+import { ApiError, ClientErrorCodes, readErrorResponse, toApiError } from './apiError'
 
 type VideoStatus = 'Uploaded' | 'Processing' | 'Ready' | 'Failed'
 
@@ -99,32 +100,27 @@ function uploadVideo(file: File, options?: UploadVideoOptions): Promise<VideoUpl
             resolve(parsed)
             return
           }
-          reject(new Error('Unexpected response format from server'))
+          reject(new ApiError('Unexpected response format from server', ClientErrorCodes.UnexpectedResponse))
         } catch {
-          reject(new Error('Failed to parse server response'))
+          reject(new ApiError('Failed to parse server response', ClientErrorCodes.UnexpectedResponse))
         }
       } else {
-        let message = `Upload failed: HTTP ${xhr.status}`
+        let errBody: unknown = null
         try {
-          const errBody = JSON.parse(xhr.responseText) as { detail?: string; title?: string }
-          if (errBody.detail) {
-            message = errBody.detail
-          } else if (errBody.title) {
-            message = errBody.title
-          }
+          errBody = JSON.parse(xhr.responseText)
         } catch {
-          // Fall back to default status string
+          // Body was empty or not JSON
         }
-        reject(new Error(message))
+        reject(toApiError(errBody, xhr.status, `Upload failed: HTTP ${xhr.status}`))
       }
     }
 
     xhr.onerror = () => {
-      reject(new Error('Network error during upload'))
+      reject(new ApiError('Network error during upload', ClientErrorCodes.NetworkError))
     }
 
     xhr.ontimeout = () => {
-      reject(new Error('Upload request timed out'))
+      reject(new ApiError('Upload request timed out', ClientErrorCodes.RequestTimeout))
     }
 
     const formData = new FormData()
@@ -137,23 +133,12 @@ function uploadVideo(file: File, options?: UploadVideoOptions): Promise<VideoUpl
 async function getVideoStatus(id: string, signal?: AbortSignal): Promise<VideoResponse> {
   const response = await fetch(apiUrl(`/api/videos/${encodeURIComponent(id)}`), { signal })
   if (!response.ok) {
-    let message = `Failed to fetch video status: HTTP ${response.status}`
-    try {
-      const errBody = (await response.json()) as { detail?: string; title?: string }
-      if (errBody.detail) {
-        message = errBody.detail
-      } else if (errBody.title) {
-        message = errBody.title
-      }
-    } catch {
-      // Fallback
-    }
-    throw new Error(message)
+    throw await readErrorResponse(response, `Failed to fetch video status: HTTP ${response.status}`)
   }
 
   const data: unknown = await response.json()
   if (!isVideoResponse(data)) {
-    throw new Error('Failed to fetch video status: unexpected response shape')
+    throw new ApiError('Failed to fetch video status: unexpected response shape', ClientErrorCodes.UnexpectedResponse)
   }
 
   return data

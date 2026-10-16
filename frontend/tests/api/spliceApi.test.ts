@@ -65,16 +65,14 @@ describe('spliceApi', () => {
       })
     })
 
-    it('extracts validation error message from validation problem response', async () => {
+    it('extracts the error message from a 400 error response', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
         status: 400,
         json: () =>
           Promise.resolve({
-            title: 'One or more validation errors occurred.',
-            errors: {
-              Value: ['Value must be at least 1 seconds.'],
-            },
+            error: 'Value must be at least 1 seconds.',
+            code: 'INVALID_SPLICE_VALUE',
           }),
       })
       vi.stubGlobal('fetch', fetchMock)
@@ -84,14 +82,14 @@ describe('spliceApi', () => {
       )
     })
 
-    it('extracts detail message on 409 conflict when video is not ready', async () => {
+    it('extracts the error message on 409 conflict when video is not ready', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
         status: 409,
         json: () =>
           Promise.resolve({
-            title: 'Video is not ready',
-            detail: 'The video is Processing; it must be Ready before it can be spliced.',
+            error: 'The video is Processing; it must be Ready before it can be spliced.',
+            code: 'VIDEO_NOT_READY',
           }),
       })
       vi.stubGlobal('fetch', fetchMock)
@@ -223,7 +221,7 @@ describe('spliceApi', () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
-        json: () => Promise.resolve({ title: 'Job not found', detail: 'No job with id exists.' }),
+        json: () => Promise.resolve({ error: 'No job with id exists.', code: 'SPLICE_JOB_NOT_FOUND' }),
       })
       vi.stubGlobal('fetch', fetchMock)
 
