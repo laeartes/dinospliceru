@@ -7,14 +7,15 @@ import {
   type SpliceJobStatus,
   type SpliceSegment,
 } from '../api/spliceApi'
+import { ClientErrorCodes, toErrorPayload } from '../api/apiError';
 
 export type SpliceJobState =
   | { status: 'idle' }
   | { status: 'triggering'; mode: SpliceMode; value: number }
   | { status: 'polling'; jobId: string; jobStatus: SpliceJobStatus; mode: SpliceMode; value: number }
   | { status: 'ready'; jobId: string; segments: SpliceSegment[] }
-  | { status: 'failed'; jobId?: string; error: string }
-  | { status: 'error'; error: string }
+  | { status: 'failed'; jobId?: string; error: string; code: string }
+  | { status: 'error'; error: string; code: string }
 
 export interface UseSpliceJobResult {
   spliceState: SpliceJobState
@@ -81,6 +82,7 @@ export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
           setSpliceState({
             status: 'error',
             error: 'Splice job timed out after 1 minute (；´Д｀)',
+            code: ClientErrorCodes.RequestTimeout,
           })
           return
         }
@@ -104,6 +106,7 @@ export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
             status: 'failed',
             jobId,
             error: job.error || 'Splice job failed on the server',
+            code: ClientErrorCodes.SpliceJobFailed,
           })
           return
         }
@@ -125,6 +128,7 @@ export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
           setSpliceState({
             status: 'error',
             error: 'Splice job timed out after 1 minute (；´Д｀)',
+            code: ClientErrorCodes.RequestTimeout,
           })
           return
         }
@@ -135,10 +139,11 @@ export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
           return
         }
 
-        const message = err instanceof Error ? err.message : 'Failed to query splice job status'
+        const { error, code } = toErrorPayload(err, 'Failed to query splice job status')
         setSpliceState({
           status: 'error',
-          error: message,
+          error,
+          code,
         })
       }
     }
@@ -188,10 +193,11 @@ export function useSpliceJob(videoId: string | null): UseSpliceJobResult {
         activePollCleanupRef.current = pollStatus(response.jobId, mode, value)
       } catch (err: unknown) {
         if (controller.signal.aborted) return
-        const message = err instanceof Error ? err.message : 'Splice request failed'
+        const { error, code } = toErrorPayload(err, 'Splice request failed')
         setSpliceState({
           status: 'error',
-          error: message,
+          error,
+          code,
         })
       }
     },

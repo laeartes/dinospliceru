@@ -3,6 +3,7 @@ import type { VideoUploadConfig } from '../api/configApi'
 import type { VideoResponse } from '../api/videoApi'
 import { formatFileSize } from '../utils/formatFileSize'
 import { useVideoUpload } from '../hooks/useVideoUpload'
+import { useToast } from '../hooks/useToast'
 
 function getExtension(file: File): string {
   const dotIndex = file.name.lastIndexOf('.')
@@ -64,6 +65,13 @@ function VideoUploader({
   const browseButtonRef = useRef<HTMLButtonElement>(null)
 
   const { uploadState, startUpload, reset, retry } = useVideoUpload()
+  const { showError } = useToast()
+
+  useEffect(() => {
+    if (uploadState.status === 'error' || uploadState.status === 'failed') {
+      showError({ error: uploadState.error, code: uploadState.code })
+    }
+  }, [uploadState, showError])
 
   useEffect(() => {
     if (uploadState.status === 'ready') {

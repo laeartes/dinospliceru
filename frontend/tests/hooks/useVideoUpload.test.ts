@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useVideoUpload } from '../../src/hooks/useVideoUpload'
 import * as videoApi from '../../src/api/videoApi'
+import { ApiError } from '../../src/api/apiError'
 
 describe('useVideoUpload', () => {
   beforeEach(() => {
@@ -151,6 +152,7 @@ describe('useVideoUpload', () => {
       fileName: 'corrupt.mp4',
       sizeBytes: 500,
       error: 'Processing failed on the server',
+      code: 'VIDEO_PROCESSING_FAILED',
     })
     expect(getStatusSpy).toHaveBeenCalledTimes(1)
 
@@ -162,7 +164,7 @@ describe('useVideoUpload', () => {
   })
 
   it('handles upload errors gracefully into error state', async () => {
-    vi.spyOn(videoApi, 'uploadVideo').mockRejectedValue(new Error('Network error during upload'))
+    vi.spyOn(videoApi, 'uploadVideo').mockRejectedValue(new ApiError('Network error during upload', 'NETWORK_ERROR'))
 
     const { result } = renderHook(() => useVideoUpload())
     const file = new File(['fail'], 'fail.mp4', { type: 'video/mp4' })
@@ -176,6 +178,7 @@ describe('useVideoUpload', () => {
       fileName: 'fail.mp4',
       sizeBytes: 4,
       error: 'Network error during upload',
+      code: 'NETWORK_ERROR',
     })
   })
 
