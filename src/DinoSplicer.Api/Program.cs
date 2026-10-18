@@ -79,6 +79,11 @@ if (builder.Environment.IsDevelopment())
 
 WebApplication app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("DevCors");
+}
+
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
@@ -90,12 +95,6 @@ app.UseStatusCodePages(async statusCodeContext =>
     HttpResponse response = statusCodeContext.HttpContext.Response;
     await response.WriteAsJsonAsync(ApiError.ForStatusCode(response.StatusCode));
 });
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("DevCors");
-}
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
