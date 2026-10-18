@@ -411,6 +411,8 @@ function VideoUploader({
               <span data-testid="video-failed-status">Status: Failed (；´Д｀)</span>
             </div>
 
+            <p className="text-sm text-red-600 font-mono">{uploadState.error}</p>
+
             <div className="flex gap-3 mt-2">
               <button
                 type="button"
@@ -441,6 +443,11 @@ function VideoUploader({
             </div>
 
             <p className="text-slate-800 font-medium">{uploadState.fileName}</p>
+
+            <p className="text-sm text-red-600 font-mono" role="alert" data-testid="upload-error-message">
+              <span className="mr-1" aria-hidden="true">(；´Д｀)</span>
+              {uploadState.error}
+            </p>
 
             <div className="flex gap-3 mt-2">
               <button

@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import SplicePanel from '../../src/components/SplicePanel'
-import ToastProvider from '../../src/components/ToastProvider'
 import type { VideoResponse } from '../../src/api/videoApi'
 import * as spliceApi from '../../src/api/spliceApi'
 
@@ -339,11 +338,7 @@ describe('SplicePanel', () => {
           segments: [{ name: 'out.mp4', duration: 30, size: 5000000 }],
         })
 
-      render(
-           <ToastProvider>
-             <SplicePanel video={mockReadyVideo} />
-           </ToastProvider>
-         )
+      render(<SplicePanel video={mockReadyVideo} />)
 
       const input = screen.getByTestId('splice-value-input')
       fireEvent.change(input, { target: { value: '30' } })
@@ -352,7 +347,7 @@ describe('SplicePanel', () => {
         fireEvent.click(screen.getByTestId('start-splice-btn'))
       })
 
-      expect(screen.getByTestId('toast-message')).toHaveTextContent(
+      expect(screen.getByTestId('splice-error-message')).toHaveTextContent(
         'Codec unsupported for fast splitting'
       )
 
