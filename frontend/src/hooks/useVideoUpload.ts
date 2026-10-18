@@ -5,6 +5,7 @@ import {
   type VideoResponse,
   type VideoStatus,
 } from '../api/videoApi'
+import { ClientErrorCodes, toErrorPayload } from '../api/apiError';
 
 export type UploadState =
   | { status: 'idle' }
@@ -18,8 +19,8 @@ export type UploadState =
       video?: VideoResponse
     }
   | { status: 'ready'; video: VideoResponse }
-  | { status: 'failed'; fileName: string; sizeBytes: number; error: string }
-  | { status: 'error'; fileName: string; sizeBytes: number; error: string }
+  | { status: 'failed'; fileName: string; sizeBytes: number; error: string; code: string }
+  | { status: 'error'; fileName: string; sizeBytes: number; error: string; code: string }
 
 export interface UseVideoUploadResult {
   uploadState: UploadState
@@ -81,6 +82,7 @@ export function useVideoUpload(): UseVideoUploadResult {
             fileName,
             sizeBytes,
             error: 'Processing failed on the server',
+            code: ClientErrorCodes.VideoProcessingFailed,
           })
           return
         }
@@ -106,12 +108,13 @@ export function useVideoUpload(): UseVideoUploadResult {
           return
         }
 
-        const message = err instanceof Error ? err.message : 'Failed to query video processing status'
+        const { error, code } = toErrorPayload(err, 'Failed to query video processing status')
         setUploadState({
           status: 'error',
           fileName,
           sizeBytes,
-          error: message,
+          error,
+          code,
         })
       }
     }
@@ -167,12 +170,13 @@ export function useVideoUpload(): UseVideoUploadResult {
         activePollCleanupRef.current = pollStatus(response.id, response.fileName, response.sizeBytes)
       } catch (err: unknown) {
         if (controller.signal.aborted) return
-        const message = err instanceof Error ? err.message : 'Upload failed'
+        const { error, code } = toErrorPayload(err, 'Upload failed')
         setUploadState({
           status: 'error',
           fileName: file.name,
           sizeBytes: file.size,
-          error: message,
+          error,
+          code,
         })
       }
     },

@@ -1,4 +1,5 @@
 import { apiUrl } from './apiClient'
+import { ApiError, ClientErrorCodes, readErrorResponse } from './apiError'
 
 export type SpliceMode = 'ByLength' | 'BySize'
 
@@ -25,40 +26,6 @@ export interface SpliceJobDetailsResponse {
   status: SpliceJobStatus
   segments: SpliceSegment[]
   error?: string
-}
-
-function parseErrorMessage(errBody: unknown, defaultMessage: string): string {
-  if (!errBody || typeof errBody !== 'object') {
-    return defaultMessage
-  }
-
-  const obj = errBody as {
-    detail?: string
-    title?: string
-    error?: string
-    errors?: Record<string, string[] | string>
-  }
-
-  if (obj.errors && typeof obj.errors === 'object') {
-    const values = Object.values(obj.errors).flat()
-    if (values.length > 0 && typeof values[0] === 'string') {
-      return values[0]
-    }
-  }
-
-  if (obj.detail && typeof obj.detail === 'string') {
-    return obj.detail
-  }
-
-  if (obj.title && typeof obj.title === 'string') {
-    return obj.title
-  }
-
-  if (obj.error && typeof obj.error === 'string') {
-    return obj.error
-  }
-
-  return defaultMessage
 }
 
 function isSpliceJobResponse(value: unknown): value is { jobId?: string; id?: string; status: string } {
@@ -141,19 +108,12 @@ export async function createSpliceJob(
   })
 
   if (!response.ok) {
-    let message = `Splice request failed: HTTP ${response.status}`
-    try {
-      const errBody: unknown = await response.json()
-      message = parseErrorMessage(errBody, message)
-    } catch {
-      // Fallback message
-    }
-    throw new Error(message)
+    throw await readErrorResponse(response, `Splice request failed: HTTP ${response.status}`)
   }
 
   const data: unknown = await response.json()
   if (!isSpliceJobResponse(data)) {
-    throw new Error('Unexpected response format from server')
+    throw new ApiError('Unexpected response format from server', ClientErrorCodes.UnexpectedResponse)
   }
 
   return normalizeSpliceJobResponse(data)
@@ -168,19 +128,12 @@ export async function getSpliceJob(jobId: string, signal?: AbortSignal): Promise
   })
 
   if (!response.ok) {
-    let message = `Failed to fetch splice job status: HTTP ${response.status}`
-    try {
-      const errBody: unknown = await response.json()
-      message = parseErrorMessage(errBody, message)
-    } catch {
-      // Fallback message
-    }
-    throw new Error(message)
+    throw await readErrorResponse(response, `Failed to fetch splice job status: HTTP ${response.status}`)
   }
 
   const data = (await response.json()) as RawSpliceJobDetails
   if (!data || typeof data !== 'object') {
-    throw new Error('Failed to fetch splice job status: unexpected response shape')
+    throw new ApiError('Failed to fetch splice job status: unexpected response shape', ClientErrorCodes.UnexpectedResponse)
   }
 
   return normalizeSpliceJobDetails(data, jobId)

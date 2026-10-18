@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import type { VideoResponse } from '../api/videoApi'
 import { type SpliceMode, type SpliceSegment } from '../api/spliceApi'
 import { useSpliceJob } from '../hooks/useSpliceJob'
+import { useToast } from '../hooks/useToast'
 import { formatFileSize } from '../utils/formatFileSize'
 import {
   type LengthUnit,
@@ -24,6 +25,13 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
   const [validationError, setValidationError] = useState<string | null>(null)
 
   const { spliceState, startSplice, reset, retry } = useSpliceJob(video.id)
+  const { showError } = useToast()
+
+  useEffect(() => {
+    if (spliceState.status === 'error' || spliceState.status === 'failed') {
+      showError({ error: spliceState.error, code: spliceState.code })
+    }
+  }, [spliceState, showError])
 
   const isSplicing = spliceState.status === 'triggering' || spliceState.status === 'polling'
 

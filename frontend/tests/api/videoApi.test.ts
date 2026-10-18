@@ -136,13 +136,15 @@ describe('videoApi', () => {
 
       const xhr = MockXMLHttpRequest.instances[0]
       xhr.simulateError(413, {
-        title: 'Upload rejected',
-        detail: 'The request is too large or malformed. Maximum file size is 1048576 bytes.',
+        error: 'The request is too large or malformed. Maximum file size is 1048576 bytes.',
+        code: 'FILE_TOO_LARGE',
       })
 
-      await expect(uploadPromise).rejects.toThrow(
-        'The request is too large or malformed. Maximum file size is 1048576 bytes.'
-      )
+      await expect(uploadPromise).rejects.toMatchObject({
+        message: 'The request is too large or malformed. Maximum file size is 1048576 bytes.',
+        code: 'FILE_TOO_LARGE',
+        status: 413,
+      })
     })
 
     it('rejects with network error message on network failure', async () => {
@@ -203,11 +205,14 @@ describe('videoApi', () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
         status: 404,
-        json: () => Promise.resolve({ title: 'Video not found', detail: 'No video with id found' }),
+        json: () => Promise.resolve({ error: 'No video with id found', code: 'VIDEO_NOT_FOUND' }),
       })
       vi.stubGlobal('fetch', fetchMock)
 
-      await expect(getVideoStatus('unknown-id')).rejects.toThrow('No video with id found')
+      await expect(getVideoStatus('unknown-id')).rejects.toMatchObject({
+        message: 'No video with id found',
+        code: 'VIDEO_NOT_FOUND',
+      })
     })
   })
 })

@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useSpliceJob } from '../../src/hooks/useSpliceJob'
 import * as spliceApi from '../../src/api/spliceApi'
+import { ApiError } from '../../src/api/apiError'
 
 describe('useSpliceJob', () => {
   beforeEach(() => {
@@ -131,6 +132,7 @@ describe('useSpliceJob', () => {
       status: 'failed',
       jobId: 'job-err',
       error: 'FFmpeg segmentation error',
+      code: 'SPLICE_JOB_FAILED',
     })
     expect(getSpy).toHaveBeenCalledTimes(1)
 
@@ -143,7 +145,7 @@ describe('useSpliceJob', () => {
 
   it('sets error state if trigger request fails', async () => {
     vi.spyOn(spliceApi, 'createSpliceJob').mockRejectedValue(
-      new Error('Video is not ready to be spliced')
+      new ApiError('Video is not ready to be spliced', 'VIDEO_NOT_READY', 409)
     )
 
     const { result } = renderHook(() => useSpliceJob('video-1'))
@@ -155,6 +157,7 @@ describe('useSpliceJob', () => {
     expect(result.current.spliceState).toEqual({
       status: 'error',
       error: 'Video is not ready to be spliced',
+      code: 'VIDEO_NOT_READY',
     })
   })
 
@@ -191,6 +194,7 @@ describe('useSpliceJob', () => {
     expect(result.current.spliceState).toEqual({
       status: 'error',
       error: 'Network glitch',
+      code: 'UNKNOWN_ERROR',
     })
   })
 
@@ -319,6 +323,7 @@ describe('useSpliceJob', () => {
     expect(result.current.spliceState).toEqual({
       status: 'error',
       error: 'Splice job timed out after 1 minute (；´Д｀)',
+      code: 'REQUEST_TIMEOUT',
     })
   })
 })

@@ -16,7 +16,7 @@ public class VideoController(
     IOptions<VideoUploadOptions> uploadOptions,
     IWebHostEnvironment environment,
     VideoProcessingQueue processingQueue
-) : ControllerBase
+) : ApiControllerBase
 
 {
     private readonly VideoUploadOptions _options = uploadOptions.Value;
@@ -36,19 +36,23 @@ public class VideoController(
                 ? badRequest.StatusCode
                 : StatusCodes.Status413PayloadTooLarge;
 
-            return Problem(
-                title: "Upload rejected",
-                detail: $"The request is too large or malformed. Maximum file size is {_options.MaxFileSizeBytes} bytes.",
-                statusCode: limitStatusCode
+            string limitCode = limitStatusCode == StatusCodes.Status413PayloadTooLarge
+                ? ApiErrorCodes.FileTooLarge
+                : ApiErrorCodes.InvalidUpload;
+
+            return ApiErrorResult(
+                limitStatusCode,
+                $"The request is too large or malformed. Maximum file size is {_options.MaxFileSizeBytes} bytes.",
+                limitCode
             );
         }
 
         if (form.Files.Count != 1)
         {
-            return Problem(
-                title: "Invalid upload",
-                detail: $"Exactly one file must be uploaded per request, but {form.Files.Count} were received.",
-                statusCode: StatusCodes.Status400BadRequest
+            return ApiErrorResult(
+                StatusCodes.Status400BadRequest,
+                $"Exactly one file must be uploaded per request, but {form.Files.Count} were received.",
+                ApiErrorCodes.InvalidFileCount
             );
         }
 
@@ -70,7 +74,7 @@ public class VideoController(
                 _ => StatusCodes.Status400BadRequest,
             };
 
-            return Problem(title: "Invalid video file", detail: error, statusCode: statusCode);
+            return ApiErrorResult(statusCode, error, ApiErrorCodes.ForVideoFileError(reason));
         }
 
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
@@ -106,10 +110,10 @@ public class VideoController(
                                 or System.IO.IOException)
         {
             System.IO.File.Delete(fullPath);
-            return Problem(
-                title: "Database error",
-                detail: "Couldn't connect to database or save video record. Please ensure the database is running and migrations are applied.",
-                statusCode: StatusCodes.Status500InternalServerError
+            return ApiErrorResult(
+                StatusCodes.Status500InternalServerError,
+                "Couldn't connect to database or save video record. Please ensure the database is running and migrations are applied.",
+                ApiErrorCodes.DatabaseError
             );
         }
         catch
@@ -148,10 +152,10 @@ public class VideoController(
         // FFmpeg may have the file open while processing, so deleting now could fail or break the job
         if (video.Status == VideoStatus.Processing)
         {
-            return Problem(
-                title: "Video is being processed",
-                detail: "The video cannot be deleted while it is being processed. Try again once processing has finished.",
-                statusCode: StatusCodes.Status409Conflict
+            return ApiErrorResult(
+                StatusCodes.Status409Conflict,
+                "The video cannot be deleted while it is being processed. Try again once processing has finished.",
+                ApiErrorCodes.VideoProcessing
             );
         }
 
@@ -162,10 +166,10 @@ public class VideoController(
         // Same reason as above: FFmpeg reads the video while splicing it
         if (spliceJobs.Any(j => j.Status == SpliceJobStatus.Processing))
         {
-            return Problem(
-                title: "Video is being spliced",
-                detail: "The video cannot be deleted while it is being spliced. Try again once splicing has finished.",
-                statusCode: StatusCodes.Status409Conflict
+            return ApiErrorResult(
+                StatusCodes.Status409Conflict,
+                "The video cannot be deleted while it is being spliced. Try again once splicing has finished.",
+                ApiErrorCodes.VideoSplicing
             );
         }
 
@@ -198,10 +202,10 @@ public class VideoController(
 
     private ObjectResult VideoNotFound(Guid id)
     {
-        return Problem(
-            title: "Video not found",
-            detail: $"No video with id '{id}' exists.",
-            statusCode: StatusCodes.Status404NotFound
+        return ApiErrorResult(
+            StatusCodes.Status404NotFound,
+            $"No video with id '{id}' exists.",
+            ApiErrorCodes.VideoNotFound
         );
     }
 }

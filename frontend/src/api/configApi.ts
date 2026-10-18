@@ -1,4 +1,5 @@
 import { apiUrl } from './apiClient'
+import { ApiError, ClientErrorCodes, readErrorResponse } from './apiError'
 
 interface VideoUploadConfig {
   maxFileSizeBytes: number
@@ -26,12 +27,12 @@ function isAppConfig(value: unknown): value is AppConfig {
 async function fetchConfig(signal?: AbortSignal): Promise<AppConfig> {
   const response = await fetch(apiUrl('/api/config'), { signal })
   if (!response.ok) {
-    throw new Error(`Failed to load config: HTTP ${response.status}`)
+    throw await readErrorResponse(response, `Failed to load config: HTTP ${response.status}`)
   }
 
   const body: unknown = await response.json()
   if (!isAppConfig(body)) {
-    throw new Error('Failed to load config: unexpected response shape')
+    throw new ApiError('Failed to load config: unexpected response shape', ClientErrorCodes.UnexpectedResponse)
   }
 
   return body

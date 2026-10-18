@@ -61,8 +61,8 @@ public class SpliceControllerTests(VideoApiFactory factory) : IClassFixture<Vide
             SpliceUrl(video.Id),
             new { mode = "ByLength", value = 30 });
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("must be Ready");
+        ApiError error = await response.ShouldBeApiErrorAsync(HttpStatusCode.Conflict, ApiErrorCodes.VideoNotReady);
+        error.Error.Should().Contain("must be Ready");
         (await CountJobsAsync(video.Id)).Should().Be(0);
     }
 
@@ -75,8 +75,7 @@ public class SpliceControllerTests(VideoApiFactory factory) : IClassFixture<Vide
             SpliceUrl(Guid.NewGuid()),
             new { mode = "ByLength", value = 30 });
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("Video not found");
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.NotFound, ApiErrorCodes.VideoNotFound);
     }
 
     [Fact]
@@ -88,7 +87,7 @@ public class SpliceControllerTests(VideoApiFactory factory) : IClassFixture<Vide
             "/api/videos/not-a-guid/splice",
             new { mode = "ByLength", value = 30 });
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.NotFound, ApiErrorCodes.NotFound);
     }
 
     [Theory]
@@ -105,7 +104,7 @@ public class SpliceControllerTests(VideoApiFactory factory) : IClassFixture<Vide
 
         HttpResponseMessage response = await client.PostAsync(SpliceUrl(video.Id), Json(body));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.BadRequest, ApiErrorCodes.ValidationFailed);
         (await CountJobsAsync(video.Id)).Should().Be(0);
     }
 
@@ -125,7 +124,8 @@ public class SpliceControllerTests(VideoApiFactory factory) : IClassFixture<Vide
 
         HttpResponseMessage response = await client.PostAsJsonAsync(SpliceUrl(video.Id), new { mode, value });
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        ApiError error = await response.ShouldBeApiErrorAsync(HttpStatusCode.BadRequest);
+        error.Code.Should().BeOneOf(ApiErrorCodes.ValidationFailed, ApiErrorCodes.InvalidSpliceValue);
         (await CountJobsAsync(video.Id)).Should().Be(0);
     }
 

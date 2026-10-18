@@ -45,21 +45,21 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload(("big.mp4", "video/mp4", oversized)));
 
-        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("maximum allowed size");
+        ApiError error = await response.ShouldBeApiErrorAsync(HttpStatusCode.RequestEntityTooLarge, ApiErrorCodes.FileTooLarge);
+        error.Error.Should().Contain("maximum allowed size");
     }
 
     [Theory]
-    [InlineData("notes.txt", "text/plain")]
-    [InlineData("clip.avi", "video/x-msvideo")]
-    [InlineData("clip.mp4", "text/plain")]
-    public async Task Upload_InvalidExtensionOrContentType_Returns415(string fileName, string contentType)
+    [InlineData("notes.txt", "text/plain", ApiErrorCodes.UnsupportedFileExtension)]
+    [InlineData("clip.avi", "video/x-msvideo", ApiErrorCodes.UnsupportedFileExtension)]
+    [InlineData("clip.mp4", "text/plain", ApiErrorCodes.UnsupportedContentType)]
+    public async Task Upload_InvalidExtensionOrContentType_Returns415(string fileName, string contentType, string expectedCode)
     {
         HttpClient client = factory.CreateClient();
 
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload((fileName, contentType, 1024)));
 
-        response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.UnsupportedMediaType, expectedCode);
     }
 
     [Theory]
@@ -100,7 +100,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload(("clip.mp4", "video/mp4", 1024)));
 
-        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.RequestEntityTooLarge, ApiErrorCodes.FileTooLarge);
     }
 
     [Fact]
@@ -112,8 +112,8 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
             UploadUrl,
             CreateUpload(("a.mp4", "video/mp4", 1024), ("b.mp4", "video/mp4", 1024)));
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("Exactly one file");
+        ApiError error = await response.ShouldBeApiErrorAsync(HttpStatusCode.BadRequest, ApiErrorCodes.InvalidFileCount);
+        error.Error.Should().Contain("Exactly one file");
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.PostAsync(UploadUrl, CreateUpload());
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.BadRequest, ApiErrorCodes.ValidationFailed);
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.GetAsync(VideoUrl(Guid.NewGuid()));
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.NotFound, ApiErrorCodes.VideoNotFound);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.GetAsync("/api/videos/not-a-guid");
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.NotFound, ApiErrorCodes.NotFound);
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.DeleteAsync(VideoUrl(Guid.NewGuid()));
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.NotFound, ApiErrorCodes.VideoNotFound);
     }
 
     [Fact]
@@ -236,7 +236,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.Conflict, ApiErrorCodes.VideoProcessing);
         (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
         File.Exists(GetFilePath(video)).Should().BeTrue();
     }
@@ -250,7 +250,7 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
 
         HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
 
-        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.Conflict, ApiErrorCodes.VideoSplicing);
         (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
         File.Exists(GetFilePath(video)).Should().BeTrue();
     }
