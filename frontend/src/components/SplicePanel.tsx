@@ -393,11 +393,6 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
 
           <p className="text-slate-800 font-medium">Splice operation failed (；´Д｀)</p>
 
-          <p className="text-sm text-red-600 font-mono" role="alert" data-testid="splice-error-message">
-            <span className="mr-1" aria-hidden="true">(；´Д｀)</span>
-            {spliceState.error}
-          </p>
-
           <div className="flex gap-3 mt-2">
             <button
               type="button"

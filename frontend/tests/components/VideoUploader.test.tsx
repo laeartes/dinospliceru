@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import VideoUploader from '../../src/components/VideoUploader'
+import ToastProvider from '../../src/components/ToastProvider'
 import type { VideoUploadConfig } from '../../src/api/configApi'
 import { formatFileSize } from '../../src/utils/formatFileSize'
 
@@ -534,7 +535,11 @@ describe('VideoUploader', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<VideoUploader config={defaultConfig} />)
+    render(
+         <ToastProvider>
+           <VideoUploader config={defaultConfig} />
+         </ToastProvider>
+       )
 
     const input = screen.getByTestId('file-input')
     fireEvent.change(input, { target: { files: [createFile('broken.mp4', 'video/mp4')] } })
@@ -554,7 +559,7 @@ describe('VideoUploader', () => {
     })
 
     expect(screen.getByTestId('video-failed-status')).toHaveTextContent(/Failed/i)
-    expect(screen.getByText(/processing failed on the server/i)).toBeInTheDocument()
+    expect(screen.getByTestId('toast-message')).toHaveTextContent(/processing failed on the server/i)
 
     // Polling stops once Failed
     await act(async () => {
