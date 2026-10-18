@@ -5,6 +5,7 @@ using DinoSplicer.Api.Services;
 using FFMpegCore;
 
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
@@ -86,8 +87,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
-    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-    await context.Response.WriteAsJsonAsync(ApiError.ForStatusCode(StatusCodes.Status500InternalServerError));
+    Exception? exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+
+    int statusCode = exception is Microsoft.AspNetCore.Http.BadHttpRequestException badRequest
+        ? badRequest.StatusCode
+        : StatusCodes.Status500InternalServerError;
+
+    context.Response.StatusCode = statusCode;
+    await context.Response.WriteAsJsonAsync(ApiError.ForStatusCode(statusCode));
 }));
 
 app.UseStatusCodePages(async statusCodeContext =>
