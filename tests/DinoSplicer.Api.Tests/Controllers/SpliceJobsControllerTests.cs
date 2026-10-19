@@ -102,6 +102,50 @@ public class SpliceJobsControllerTests(VideoApiFactory factory) : IClassFixture<
         finished.Outputs.Should().HaveCount(4);
     }
 
+    [Fact]
+    public async Task Delete_ReadyJob_Returns204AndRemovesRowsAndFiles()
+    {
+        Video video = await SeedReadyVideoAsync();
+        SpliceJob job = await SeedJobAsync(video.Id, SpliceJobStatus.Ready);
+        await SeedOutputAsync(job.Id, segmentIndex: 1, createFile: true);
+        await SeedOutputAsync(job.Id, segmentIndex: 2, createFile: true);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(JobUrl(job.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.SpliceJobs.AnyAsync(j => j.Id == job.Id)).Should().BeFalse();
+        (await db.SpliceOutputs.AnyAsync(o => o.SpliceJobId == job.Id)).Should().BeFalse();
+        Directory.Exists(SpliceProcessingWorker.GetOutputDirectory(factory.StorageDirectory, job.Id)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Delete_MissingId_Returns404()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(JobUrl(Guid.NewGuid()));
+
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.NotFound, ApiErrorCodes.SpliceJobNotFound);
+    }
+
+    [Fact]
+    public async Task Delete_ProcessingJob_Returns409AndKeepsJob()
+    {
+        Video video = await SeedReadyVideoAsync();
+        SpliceJob job = await SeedJobAsync(video.Id, SpliceJobStatus.Processing);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(JobUrl(job.Id));
+
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.Conflict, ApiErrorCodes.SpliceJobProcessing);
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.SpliceJobs.AnyAsync(j => j.Id == job.Id)).Should().BeTrue();
+    }
+
     private static string JobUrl(Guid jobId)
     {
         return $"/api/splice-jobs/{jobId}";
@@ -163,7 +207,7 @@ public class SpliceJobsControllerTests(VideoApiFactory factory) : IClassFixture<
         return job;
     }
 
-    private async Task<SpliceOutput> SeedOutputAsync(Guid jobId, int segmentIndex)
+    private async Task<SpliceOutput> SeedOutputAsync(Guid jobId, int segmentIndex, bool createFile = false)
     {
         SpliceOutput output = new()
         {
@@ -174,6 +218,14 @@ public class SpliceJobsControllerTests(VideoApiFactory factory) : IClassFixture<
             DurationSeconds = 3,
             SizeBytes = 1024,
         };
+
+        if (createFile)
+        {
+            string filePath = Path.Combine(factory.StorageDirectory, output.StoragePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            await File.WriteAllBytesAsync(filePath, new byte[output.SizeBytes]);
+        }
+
         await SaveAsync(output);
         return output;
     }

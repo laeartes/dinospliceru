@@ -7,6 +7,7 @@ public static class ApiErrorCodes
     public const string VideoProcessing = "VIDEO_PROCESSING";
     public const string VideoSplicing = "VIDEO_SPLICING";
     public const string SpliceJobNotFound = "SPLICE_JOB_NOT_FOUND";
+    public const string SpliceJobProcessing = "SPLICE_JOB_PROCESSING";
     public const string InvalidUpload = "INVALID_UPLOAD";
     public const string InvalidFileCount = "INVALID_FILE_COUNT";
     public const string FileEmpty = "FILE_EMPTY";
