@@ -146,6 +146,60 @@ public class SpliceJobsControllerTests(VideoApiFactory factory) : IClassFixture<
         (await db.SpliceJobs.AnyAsync(j => j.Id == job.Id)).Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(SpliceJobStatus.Pending)]
+    [InlineData(SpliceJobStatus.Failed)]
+    public async Task Delete_PendingOrFailedJob_Returns204AndRemovesJob(SpliceJobStatus status)
+    {
+        Video video = await SeedReadyVideoAsync();
+        SpliceJob job = await SeedJobAsync(video.Id, status);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(JobUrl(job.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.SpliceJobs.AnyAsync(j => j.Id == job.Id)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Delete_ReadyJob_KeepsSourceVideoAndFile()
+    {
+        Video video = await SeedReadyVideoAsync(withSampleFile: true);
+        SpliceJob job = await SeedJobAsync(video.Id, SpliceJobStatus.Ready);
+        await SeedOutputAsync(job.Id, segmentIndex: 1, createFile: true);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(JobUrl(job.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.Videos.AnyAsync(v => v.Id == video.Id)).Should().BeTrue();
+        File.Exists(Path.Combine(factory.StorageDirectory, video.FileName)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_FolderWithStrayFile_Returns204AndRemovesFolder()
+    {
+        Video video = await SeedReadyVideoAsync();
+        SpliceJob job = await SeedJobAsync(video.Id, SpliceJobStatus.Ready);
+        await SeedOutputAsync(job.Id, segmentIndex: 1, createFile: true);
+        string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(factory.StorageDirectory, job.Id);
+        // A file without an output row, like a segments.csv left behind by an interrupted splice
+        await File.WriteAllTextAsync(Path.Combine(outputDirectory, "stray.txt"), "left behind");
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(JobUrl(job.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        Directory.Exists(outputDirectory).Should().BeFalse();
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.SpliceJobs.AnyAsync(j => j.Id == job.Id)).Should().BeFalse();
+    }
+
     private static string JobUrl(Guid jobId)
     {
         return $"/api/splice-jobs/{jobId}";
