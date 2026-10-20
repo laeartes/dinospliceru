@@ -1,5 +1,5 @@
 import { apiUrl } from './apiClient'
-import { ApiError, ClientErrorCodes, readErrorResponse } from './apiError'
+import { ApiError, ClientErrorCodes, readErrorResponse, toApiError } from './apiError'
 
 export type SpliceMode = 'ByLength' | 'BySize'
 
@@ -16,6 +16,7 @@ export interface SpliceJobResponse {
 }
 
 export interface SpliceSegment {
+  id: string
   name: string
   duration: number
   size: number
@@ -50,6 +51,7 @@ interface RawSpliceJobDetails {
   message?: string
   detail?: string
   segments?: Array<{
+    id?: string
     name?: string
     fileName?: string
     duration?: number
@@ -58,6 +60,7 @@ interface RawSpliceJobDetails {
     sizeBytes?: number
   }>
   outputs?: Array<{
+    id?: string
     name?: string
     fileName?: string
     duration?: number
@@ -76,6 +79,7 @@ function normalizeSpliceJobDetails(raw: RawSpliceJobDetails, fallbackId: string)
 
   const rawSegments = raw.segments ?? raw.outputs ?? []
   const segments: SpliceSegment[] = rawSegments.map((item, index) => ({
+    id: item.id ?? '',
     name: item.name ?? item.fileName ?? `Segment ${index + 1}`,
     duration: item.duration ?? item.durationSeconds ?? 0,
     size: item.size ?? item.sizeBytes ?? 0,
@@ -137,4 +141,93 @@ export async function getSpliceJob(jobId: string, signal?: AbortSignal): Promise
   }
 
   return normalizeSpliceJobDetails(data, jobId)
+}
+
+export function getSpliceOutputDownloadUrl(outputId: string): string {
+  return apiUrl(`/api/splice-outputs/${encodeURIComponent(outputId)}/download`)
+}
+
+export interface DownloadSpliceOutputOptions {
+  onProgress?: (percent: number) => void
+  signal?: AbortSignal
+}
+
+export function downloadSpliceOutput(
+  outputId: string,
+  fileName: string,
+  options: DownloadSpliceOutputOptions = {}
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('GET', getSpliceOutputDownloadUrl(outputId))
+    // Let the browser own the response buffer instead of piling every chunk into the JS heap
+    xhr.responseType = 'blob'
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        reject(new DOMException('Download aborted', 'AbortError'))
+        return
+      }
+
+      options.signal.addEventListener(
+        'abort',
+        () => {
+          xhr.abort()
+          reject(new DOMException('Download aborted', 'AbortError'))
+        },
+        { once: true }
+      )
+    }
+
+    if (options.onProgress) {
+      xhr.onprogress = (event: ProgressEvent) => {
+        if (event.lengthComputable && event.total > 0) {
+          options.onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+        }
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        saveBlob(xhr.response as Blob, fileName)
+        resolve()
+      } else {
+        void rejectFromXhr(xhr, reject)
+      }
+    }
+
+    xhr.onerror = () => {
+      reject(new ApiError('Network error during download', ClientErrorCodes.NetworkError))
+    }
+
+    xhr.ontimeout = () => {
+      reject(new ApiError('Download request timed out', ClientErrorCodes.RequestTimeout))
+    }
+
+    xhr.send()
+  })
+}
+
+async function rejectFromXhr(xhr: XMLHttpRequest, reject: (reason: unknown) => void): Promise<void> {
+  let body: unknown = null
+  try {
+    body = JSON.parse(await (xhr.response as Blob).text())
+  } catch {
+    // Body was empty or not JSON
+  }
+  reject(toApiError(body, xhr.status, `Download failed: HTTP ${xhr.status}`))
+}
+
+function saveBlob(blob: Blob, fileName: string): void {
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  }
 }

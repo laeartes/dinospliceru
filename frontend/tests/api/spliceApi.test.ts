@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   createSpliceJob,
   getSpliceJob,
+  downloadSpliceOutput,
   type SpliceRequest,
 } from '../../src/api/spliceApi'
 
@@ -119,8 +120,8 @@ describe('spliceApi', () => {
         id: 'job-abc',
         status: 'Ready',
         segments: [
-          { name: 'segment_01.mp4', duration: 30, size: 5242880 },
-          { name: 'segment_02.mp4', duration: 25.5, size: 4194304 },
+          { id: 'out-1', name: 'segment_01.mp4', duration: 30, size: 5242880 },
+          { id: 'out-2', name: 'segment_02.mp4', duration: 25.5, size: 4194304 },
         ],
       }
 
@@ -137,8 +138,8 @@ describe('spliceApi', () => {
         id: 'job-abc',
         status: 'Ready',
         segments: [
-          { name: 'segment_01.mp4', duration: 30, size: 5242880 },
-          { name: 'segment_02.mp4', duration: 25.5, size: 4194304 },
+          { id: 'out-1', name: 'segment_01.mp4', duration: 30, size: 5242880 },
+          { id: 'out-2', name: 'segment_02.mp4', duration: 25.5, size: 4194304 },
         ],
       })
       expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/splice-jobs\/job-abc$/)
@@ -149,7 +150,7 @@ describe('spliceApi', () => {
         id: 'job-def',
         status: 'Ready',
         outputs: [
-          { fileName: 'part_001.mp4', durationSeconds: 60, sizeBytes: 10485760 },
+          { id: 'out-a', fileName: 'part_001.mp4', durationSeconds: 60, sizeBytes: 10485760 },
         ],
       }
 
@@ -166,7 +167,7 @@ describe('spliceApi', () => {
         id: 'job-def',
         status: 'Ready',
         segments: [
-          { name: 'part_001.mp4', duration: 60, size: 10485760 },
+          { id: 'out-a', name: 'part_001.mp4', duration: 60, size: 10485760 },
         ],
       })
     })
@@ -226,6 +227,132 @@ describe('spliceApi', () => {
       vi.stubGlobal('fetch', fetchMock)
 
       await expect(getSpliceJob('non-existent')).rejects.toThrow('No job with id exists.')
+    })
+  })
+
+  describe('downloadSpliceOutput', () => {
+    class FakeXhr {
+      static instances: FakeXhr[] = []
+      method = ''
+      url = ''
+      status = 0
+      response: unknown = null
+      responseType = ''
+      onprogress: ((event: ProgressEvent) => void) | null = null
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      ontimeout: (() => void) | null = null
+      aborted = false
+
+      constructor() {
+        FakeXhr.instances.push(this)
+      }
+
+      open(method: string, url: string) {
+        this.method = method
+        this.url = url
+      }
+
+      send() {}
+
+      abort() {
+        this.aborted = true
+      }
+
+      respond(status: number, body: unknown) {
+        this.status = status
+        this.response = body
+        this.onload?.()
+      }
+
+      emitProgress(loaded: number, total: number) {
+        this.onprogress?.({ lengthComputable: true, loaded, total } as ProgressEvent)
+      }
+    }
+
+    beforeEach(() => {
+      FakeXhr.instances = []
+      vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    })
+
+    it('downloads the output blob with the segment file name', async () => {
+      const createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
+      const revokeObjectURL = vi.fn()
+      vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
+
+      const clicked: HTMLAnchorElement[] = []
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: unknown) {
+        clicked.push(this as HTMLAnchorElement)
+      })
+
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4')
+      const xhr = FakeXhr.instances[0]
+      expect(xhr.method).toBe('GET')
+      expect(xhr.url).toMatch(/\/api\/splice-outputs\/out-1\/download$/)
+      expect(xhr.responseType).toBe('blob')
+
+      const blob = new Blob(['segment bytes'], { type: 'video/mp4' })
+      xhr.respond(200, blob)
+      await promise
+
+      expect(createObjectURL).toHaveBeenCalledWith(blob)
+      expect(clicked).toHaveLength(1)
+      expect(clicked[0].download).toBe('holiday_part01.mp4')
+      expect(clicked[0].href).toBe('blob:mock-url')
+      await vi.waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'), {
+        timeout: 2000,
+      })
+    })
+
+    it('reports download progress as the body streams', async () => {
+      const createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
+      vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() })
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+      const progress: number[] = []
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4', {
+        onProgress: (percent) => progress.push(percent),
+      })
+      const xhr = FakeXhr.instances[0]
+      xhr.emitProgress(5, 10)
+      xhr.emitProgress(10, 10)
+      xhr.respond(200, new Blob(['segment bytes']))
+      await promise
+
+      expect(progress).toEqual([50, 100])
+      expect(createObjectURL).toHaveBeenCalledTimes(1)
+    })
+
+    it('throws the server error when the download request fails', async () => {
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4')
+      const xhr = FakeXhr.instances[0]
+      xhr.respond(
+        409,
+        new Blob(
+          [
+            JSON.stringify({
+              error: 'The splice job is Processing; it must be Ready before its outputs can be downloaded.',
+              code: 'SPLICE_JOB_NOT_READY',
+            }),
+          ],
+          { type: 'application/json' }
+        )
+      )
+
+      await expect(promise).rejects.toThrow(
+        'The splice job is Processing; it must be Ready before its outputs can be downloaded.'
+      )
+    })
+
+    it('rejects when the download is aborted', async () => {
+      const controller = new AbortController()
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4', {
+        signal: controller.signal,
+      })
+      controller.abort()
+
+      await expect(promise).rejects.toThrow(/aborted/i)
+      expect(FakeXhr.instances[0].aborted).toBe(true)
     })
   })
 })

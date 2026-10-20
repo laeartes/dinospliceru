@@ -2,6 +2,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import SplicePanel from '../../src/components/SplicePanel'
 import type { VideoResponse } from '../../src/api/videoApi'
+import { ApiError } from '../../src/api/apiError'
 import * as spliceApi from '../../src/api/spliceApi'
 
 const mockReadyVideo: VideoResponse = {
@@ -265,8 +266,8 @@ describe('SplicePanel', () => {
           id: 'job-poll-test',
           status: 'Ready',
           segments: [
-            { name: 'nature_clip_part1.mp4', duration: 30, size: 10485760 },
-            { name: 'nature_clip_part2.mp4', duration: 30, size: 10485760 },
+            { id: 'out-1', name: 'nature_clip_part1.mp4', duration: 30, size: 10485760 },
+            { id: 'out-2', name: 'nature_clip_part2.mp4', duration: 30, size: 10485760 },
           ],
         })
 
@@ -335,7 +336,7 @@ describe('SplicePanel', () => {
         .mockResolvedValueOnce({
           id: 'job-fail-test-2',
           status: 'Ready',
-          segments: [{ name: 'out.mp4', duration: 30, size: 5000000 }],
+          segments: [{ id: 'out-retry', name: 'out.mp4', duration: 30, size: 5000000 }],
         })
 
       render(<SplicePanel video={mockReadyVideo} />)
@@ -392,7 +393,7 @@ describe('SplicePanel', () => {
       vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
         id: 'job-notify',
         status: 'Ready',
-        segments: [{ name: 'out.mp4', duration: 15, size: 5000 }],
+        segments: [{ id: 'out-notify', name: 'out.mp4', duration: 15, size: 5000 }],
       })
 
       const onSplicingChange = vi.fn()
@@ -413,6 +414,216 @@ describe('SplicePanel', () => {
 
       // When ready, false is sent
       expect(onSplicingChange).toHaveBeenLastCalledWith(false)
+    })
+  })
+
+  describe('segment downloads', () => {
+    it('hides download buttons while the job is Processing', async () => {
+      vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-processing',
+        status: 'Pending',
+      })
+      vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+        id: 'job-processing',
+        status: 'Processing',
+        segments: [],
+      })
+
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      fireEvent.change(screen.getByTestId('splice-value-input'), { target: { value: '30' } })
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      expect(screen.queryAllByTestId('segment-download-btn')).toHaveLength(0)
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000)
+      })
+      expect(screen.queryAllByTestId('segment-download-btn')).toHaveLength(0)
+    })
+
+    it('shows a download button per segment once Ready and downloads the correct one', async () => {
+      vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-ready',
+        status: 'Pending',
+      })
+      vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+        id: 'job-ready',
+        status: 'Ready',
+        segments: [
+          { id: 'out-1', name: 'nature_clip_part1.mp4', duration: 30, size: 10485760 },
+          { id: 'out-2', name: 'nature_clip_part2.mp4', duration: 30, size: 10485760 },
+        ],
+      })
+      const downloadSpy = vi.spyOn(spliceApi, 'downloadSpliceOutput').mockResolvedValue(undefined)
+
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      fireEvent.change(screen.getByTestId('splice-value-input'), { target: { value: '30' } })
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      const buttons = screen.getAllByTestId('segment-download-btn')
+      expect(buttons).toHaveLength(2)
+      expect(buttons[0]).toBeEnabled()
+
+      await act(async () => {
+        fireEvent.click(buttons[0])
+      })
+
+      expect(downloadSpy).toHaveBeenCalledTimes(1)
+      expect(downloadSpy).toHaveBeenCalledWith(
+        'out-1',
+        'nature_clip_part1.mp4',
+        expect.objectContaining({ onProgress: expect.any(Function) })
+      )
+    })
+
+    it('shows an error message when a download fails', async () => {
+      vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-ready',
+        status: 'Pending',
+      })
+      vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+        id: 'job-ready',
+        status: 'Ready',
+        segments: [{ id: 'out-1', name: 'nature_clip_part1.mp4', duration: 30, size: 10485760 }],
+      })
+      vi.spyOn(spliceApi, 'downloadSpliceOutput').mockRejectedValue(
+        new ApiError(
+          'The splice job is Processing; it must be Ready before its outputs can be downloaded.',
+          'SPLICE_JOB_NOT_READY',
+          409
+        )
+      )
+
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      fireEvent.change(screen.getByTestId('splice-value-input'), { target: { value: '30' } })
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('segment-download-btn'))
+      })
+
+      expect(screen.getByTestId('download-error')).toHaveTextContent(
+        'The splice job is Processing; it must be Ready before its outputs can be downloaded.'
+      )
+    })
+
+    it('shows a progress bar while a segment downloads', async () => {
+      vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-ready',
+        status: 'Pending',
+      })
+      vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+        id: 'job-ready',
+        status: 'Ready',
+        segments: [{ id: 'out-1', name: 'nature_clip_part1.mp4', duration: 30, size: 10485760 }],
+      })
+
+      let resolveDownload: () => void = () => {}
+      const downloadSpy = vi.spyOn(spliceApi, 'downloadSpliceOutput').mockImplementation(
+        (_outputId, _fileName, options) => {
+          options?.onProgress?.(42)
+          return new Promise<void>((resolve) => {
+            resolveDownload = resolve
+          })
+        }
+      )
+
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      fireEvent.change(screen.getByTestId('splice-value-input'), { target: { value: '30' } })
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('segment-download-btn'))
+      })
+
+      expect(downloadSpy).toHaveBeenCalledWith(
+        'out-1',
+        'nature_clip_part1.mp4',
+        expect.objectContaining({ onProgress: expect.any(Function) })
+      )
+      expect(screen.getByTestId('download-progress')).toHaveAttribute('aria-valuenow', '42')
+      expect(screen.getByTestId('segment-download-btn')).toHaveTextContent('42%')
+
+      await act(async () => {
+        resolveDownload()
+      })
+      expect(screen.queryByTestId('download-progress')).not.toBeInTheDocument()
+    })
+
+    it('downloads every segment in order when Download all is clicked', async () => {
+      vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-ready',
+        status: 'Pending',
+      })
+      vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+        id: 'job-ready',
+        status: 'Ready',
+        segments: [
+          { id: 'out-1', name: 'nature_clip_part1.mp4', duration: 30, size: 10485760 },
+          { id: 'out-2', name: 'nature_clip_part2.mp4', duration: 30, size: 10485760 },
+        ],
+      })
+      const downloadSpy = vi.spyOn(spliceApi, 'downloadSpliceOutput').mockResolvedValue(undefined)
+
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      fireEvent.change(screen.getByTestId('splice-value-input'), { target: { value: '30' } })
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('download-all-btn'))
+      })
+
+      expect(downloadSpy).toHaveBeenCalledTimes(2)
+      expect(downloadSpy.mock.calls[0][0]).toBe('out-1')
+      expect(downloadSpy.mock.calls[1][0]).toBe('out-2')
+    })
+
+    it('stops and shows an error when a Download all fails', async () => {
+      vi.spyOn(spliceApi, 'createSpliceJob').mockResolvedValue({
+        jobId: 'job-ready',
+        status: 'Pending',
+      })
+      vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
+        id: 'job-ready',
+        status: 'Ready',
+        segments: [
+          { id: 'out-1', name: 'nature_clip_part1.mp4', duration: 30, size: 10485760 },
+          { id: 'out-2', name: 'nature_clip_part2.mp4', duration: 30, size: 10485760 },
+        ],
+      })
+      const downloadSpy = vi
+        .spyOn(spliceApi, 'downloadSpliceOutput')
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new ApiError('Download failed on the server', 'INTERNAL_ERROR', 500))
+
+      render(<SplicePanel video={mockReadyVideo} />)
+
+      fireEvent.change(screen.getByTestId('splice-value-input'), { target: { value: '30' } })
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-splice-btn'))
+      })
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('download-all-btn'))
+      })
+
+      expect(downloadSpy).toHaveBeenCalledTimes(2)
+      expect(screen.getByTestId('download-error')).toHaveTextContent('Download failed on the server')
     })
   })
 })

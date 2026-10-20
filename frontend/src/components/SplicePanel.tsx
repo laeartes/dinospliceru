@@ -1,6 +1,7 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import type { VideoResponse } from '../api/videoApi'
-import { type SpliceMode, type SpliceSegment } from '../api/spliceApi'
+import { type SpliceMode, type SpliceSegment, downloadSpliceOutput } from '../api/spliceApi'
+import { toErrorPayload } from '../api/apiError'
 import { useSpliceJob } from '../hooks/useSpliceJob'
 import { useToast } from '../hooks/useToast'
 import { formatFileSize } from '../utils/formatFileSize'
@@ -23,6 +24,10 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
   const [sizeUnit, setSizeUnit] = useState<SizeUnit>('MB')
   const [inputValue, setInputValue] = useState('')
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [downloadProgress, setDownloadProgress] = useState<{ id: string; percent: number } | null>(null)
+  const [bulkDownload, setBulkDownload] = useState<{ current: number; total: number } | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
+  const downloadAbortRef = useRef<AbortController | null>(null)
 
   const { spliceState, startSplice, reset, retry } = useSpliceJob(video.id)
   const { showError } = useToast()
@@ -34,6 +39,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
   }, [spliceState, showError])
 
   const isSplicing = spliceState.status === 'triggering' || spliceState.status === 'polling'
+  const isDownloading = downloadProgress !== null || bulkDownload !== null
 
   useEffect(() => {
     onSplicingChange?.(isSplicing)
@@ -41,6 +47,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
 
   useEffect(() => {
     return () => {
+      downloadAbortRef.current?.abort()
       onSplicingChange?.(false)
     }
   }, [onSplicingChange])
@@ -63,8 +70,65 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
   }
 
   function handleSpliceAgain() {
+    downloadAbortRef.current?.abort()
+    downloadAbortRef.current = null
     reset()
     setValidationError(null)
+    setDownloadError(null)
+    setDownloadProgress(null)
+    setBulkDownload(null)
+  }
+
+  async function runDownload(segment: SpliceSegment, signal: AbortSignal): Promise<boolean> {
+    setDownloadProgress({ id: segment.id, percent: 0 })
+    try {
+      await downloadSpliceOutput(segment.id, segment.name, {
+        onProgress: (percent) => setDownloadProgress({ id: segment.id, percent }),
+        signal,
+      })
+      return true
+    } catch (err: unknown) {
+      if (!signal.aborted) {
+        setDownloadError(toErrorPayload(err, 'Failed to download segment').error)
+      }
+      return false
+    } finally {
+      setDownloadProgress(null)
+    }
+  }
+
+  async function handleDownload(segment: SpliceSegment) {
+    setDownloadError(null)
+    downloadAbortRef.current?.abort()
+    const controller = new AbortController()
+    downloadAbortRef.current = controller
+
+    await runDownload(segment, controller.signal)
+
+    if (downloadAbortRef.current === controller) {
+      downloadAbortRef.current = null
+    }
+  }
+
+  async function handleDownloadAll() {
+    if (spliceState.status !== 'ready') return
+
+    setDownloadError(null)
+    downloadAbortRef.current?.abort()
+    const controller = new AbortController()
+    downloadAbortRef.current = controller
+
+    const segments = spliceState.segments
+    for (let index = 0; index < segments.length; index += 1) {
+      if (controller.signal.aborted) break
+      setBulkDownload({ current: index + 1, total: segments.length })
+      if (!(await runDownload(segments[index], controller.signal))) break
+    }
+
+    if (downloadAbortRef.current === controller) {
+      downloadAbortRef.current = null
+    }
+    setBulkDownload(null)
   }
 
   return (
@@ -341,9 +405,10 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
           <div className="w-full max-w-lg overflow-hidden border border-cyber-border bg-slate-50 text-left font-mono text-xs">
             <div className="grid grid-cols-12 bg-slate-100 p-2 font-semibold text-slate-600 border-b border-cyber-border">
               <span className="col-span-1 text-center">#</span>
-              <span className="col-span-6">Segment Name</span>
+              <span className="col-span-4">Segment Name</span>
               <span className="col-span-3">Duration</span>
               <span className="col-span-2 text-right">Size</span>
+              <span className="col-span-2 text-right">Save</span>
             </div>
             <div className="divide-y divide-cyber-border" data-testid="segments-list">
               {spliceState.segments.length === 0 ? (
@@ -356,7 +421,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                     data-testid="segment-item"
                   >
                     <span className="col-span-1 text-center text-slate-400 font-bold">{idx + 1}</span>
-                    <span className="col-span-6 truncate font-medium text-slate-800" data-testid="segment-name">
+                    <span className="col-span-4 truncate font-medium text-slate-800" data-testid="segment-name">
                       {segment.name}
                     </span>
                     <span className="col-span-3 text-slate-600" data-testid="segment-duration">
@@ -365,20 +430,70 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                     <span className="col-span-2 text-right font-medium text-slate-700" data-testid="segment-size">
                       {formatFileSize(segment.size)}
                     </span>
+                    <span className="col-span-2 flex flex-col items-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => void handleDownload(segment)}
+                        disabled={isDownloading}
+                        aria-label={`Download ${segment.name}`}
+                        className="border border-cyber-border bg-white px-2 py-0.5 font-mono text-[10px] text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/10 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer"
+                        data-testid="segment-download-btn"
+                      >
+                        {downloadProgress?.id === segment.id
+                          ? `${downloadProgress.percent}%`
+                          : 'Download ⤓'}
+                      </button>
+                      {downloadProgress?.id === segment.id && (
+                        <span
+                          role="progressbar"
+                          aria-valuenow={downloadProgress.percent}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          aria-label={`Download progress for ${segment.name}`}
+                          className="h-1 w-full overflow-hidden bg-slate-200"
+                          data-testid="download-progress"
+                        >
+                          <span
+                            className="block h-full bg-cyber-cyan transition-all"
+                            style={{ width: `${downloadProgress.percent}%` }}
+                          />
+                        </span>
+                      )}
+                    </span>
                   </div>
                 ))
               )}
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSpliceAgain}
-            className="mt-2 bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
-            data-testid="splice-again-btn"
-          >
-            Splice again (• ◡•) ✦
-          </button>
+          {downloadError && (
+            <p className="text-sm text-red-600 font-mono" role="alert" data-testid="download-error">
+              <span className="mr-1" aria-hidden="true">(；´Д｀)</span>
+              {downloadError}
+            </p>
+          )}
+
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handleDownloadAll()}
+              disabled={isDownloading || spliceState.segments.length === 0}
+              className="border border-cyber-border bg-white px-4 py-2 font-medium text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/10 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
+              data-testid="download-all-btn"
+            >
+              {bulkDownload
+                ? `Downloading ${bulkDownload.current}/${bulkDownload.total} ⤓`
+                : 'Download all ⤓'}
+            </button>
+            <button
+              type="button"
+              onClick={handleSpliceAgain}
+              className="bg-cyber-cyan px-4 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
+              data-testid="splice-again-btn"
+            >
+              Splice again (• ◡•) ✦
+            </button>
+          </div>
         </div>
       )}
 
