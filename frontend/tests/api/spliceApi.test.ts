@@ -257,7 +257,9 @@ describe('spliceApi', () => {
       expect(clicked).toHaveLength(1)
       expect(clicked[0].download).toBe('holiday_part01.mp4')
       expect(clicked[0].href).toBe('blob:mock-url')
-      expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
+      await vi.waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'), {
+        timeout: 2000,
+      })
     })
 
     it('reports download progress as the body streams', async () => {

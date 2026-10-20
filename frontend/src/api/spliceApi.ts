@@ -198,6 +198,6 @@ function saveBlob(blob: Blob, fileName: string): void {
     link.click()
     link.remove()
   } finally {
-    URL.revokeObjectURL(objectUrl)
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
   }
 }
