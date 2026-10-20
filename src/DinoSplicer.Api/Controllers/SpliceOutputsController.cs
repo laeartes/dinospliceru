@@ -65,6 +65,6 @@ public class SpliceOutputsController(
             contentType = MediaTypeNames.Application.Octet;
         }
 
-        return PhysicalFile(filePath, contentType, output.FileName);
+        return PhysicalFile(filePath, contentType, output.FileName, enableRangeProcessing: true);
     }
 }
