@@ -475,7 +475,11 @@ describe('SplicePanel', () => {
       })
 
       expect(downloadSpy).toHaveBeenCalledTimes(1)
-      expect(downloadSpy).toHaveBeenCalledWith('out-1', 'nature_clip_part1.mp4', expect.any(Function))
+      expect(downloadSpy).toHaveBeenCalledWith(
+        'out-1',
+        'nature_clip_part1.mp4',
+        expect.objectContaining({ onProgress: expect.any(Function) })
+      )
     })
 
     it('shows an error message when a download fails', async () => {
@@ -525,8 +529,8 @@ describe('SplicePanel', () => {
 
       let resolveDownload: () => void = () => {}
       const downloadSpy = vi.spyOn(spliceApi, 'downloadSpliceOutput').mockImplementation(
-        (_outputId, _fileName, onProgress) => {
-          onProgress?.(42)
+        (_outputId, _fileName, options) => {
+          options?.onProgress?.(42)
           return new Promise<void>((resolve) => {
             resolveDownload = resolve
           })
@@ -544,7 +548,11 @@ describe('SplicePanel', () => {
         fireEvent.click(screen.getByTestId('segment-download-btn'))
       })
 
-      expect(downloadSpy).toHaveBeenCalledWith('out-1', 'nature_clip_part1.mp4', expect.any(Function))
+      expect(downloadSpy).toHaveBeenCalledWith(
+        'out-1',
+        'nature_clip_part1.mp4',
+        expect.objectContaining({ onProgress: expect.any(Function) })
+      )
       expect(screen.getByTestId('download-progress')).toHaveAttribute('aria-valuenow', '42')
       expect(screen.getByTestId('segment-download-btn')).toHaveTextContent('42%')
 

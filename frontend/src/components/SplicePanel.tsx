@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import type { VideoResponse } from '../api/videoApi'
 import { type SpliceMode, type SpliceSegment, downloadSpliceOutput } from '../api/spliceApi'
 import { toErrorPayload } from '../api/apiError'
@@ -27,6 +27,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
   const [downloadProgress, setDownloadProgress] = useState<{ id: string; percent: number } | null>(null)
   const [bulkDownload, setBulkDownload] = useState<{ current: number; total: number } | null>(null)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const downloadAbortRef = useRef<AbortController | null>(null)
 
   const { spliceState, startSplice, reset, retry } = useSpliceJob(video.id)
   const { showError } = useToast()
@@ -46,6 +47,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
 
   useEffect(() => {
     return () => {
+      downloadAbortRef.current?.abort()
       onSplicingChange?.(false)
     }
   }, [onSplicingChange])
@@ -68,6 +70,8 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
   }
 
   function handleSpliceAgain() {
+    downloadAbortRef.current?.abort()
+    downloadAbortRef.current = null
     reset()
     setValidationError(null)
     setDownloadError(null)
@@ -75,17 +79,34 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
     setBulkDownload(null)
   }
 
-  async function handleDownload(segment: SpliceSegment) {
-    setDownloadError(null)
+  async function runDownload(segment: SpliceSegment, signal: AbortSignal): Promise<boolean> {
     setDownloadProgress({ id: segment.id, percent: 0 })
     try {
-      await downloadSpliceOutput(segment.id, segment.name, (percent) =>
-        setDownloadProgress({ id: segment.id, percent })
-      )
+      await downloadSpliceOutput(segment.id, segment.name, {
+        onProgress: (percent) => setDownloadProgress({ id: segment.id, percent }),
+        signal,
+      })
+      return true
     } catch (err: unknown) {
-      setDownloadError(toErrorPayload(err, 'Failed to download segment').error)
+      if (!signal.aborted) {
+        setDownloadError(toErrorPayload(err, 'Failed to download segment').error)
+      }
+      return false
     } finally {
       setDownloadProgress(null)
+    }
+  }
+
+  async function handleDownload(segment: SpliceSegment) {
+    setDownloadError(null)
+    downloadAbortRef.current?.abort()
+    const controller = new AbortController()
+    downloadAbortRef.current = controller
+
+    await runDownload(segment, controller.signal)
+
+    if (downloadAbortRef.current === controller) {
+      downloadAbortRef.current = null
     }
   }
 
@@ -93,21 +114,19 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
     if (spliceState.status !== 'ready') return
 
     setDownloadError(null)
+    downloadAbortRef.current?.abort()
+    const controller = new AbortController()
+    downloadAbortRef.current = controller
+
     const segments = spliceState.segments
     for (let index = 0; index < segments.length; index += 1) {
-      const segment = segments[index]
+      if (controller.signal.aborted) break
       setBulkDownload({ current: index + 1, total: segments.length })
-      setDownloadProgress({ id: segment.id, percent: 0 })
-      try {
-        await downloadSpliceOutput(segment.id, segment.name, (percent) =>
-          setDownloadProgress({ id: segment.id, percent })
-        )
-      } catch (err: unknown) {
-        setDownloadError(toErrorPayload(err, 'Failed to download segment').error)
-        break
-      } finally {
-        setDownloadProgress(null)
-      }
+      if (!(await runDownload(segments[index], controller.signal))) break
+    }
+
+    if (downloadAbortRef.current === controller) {
+      downloadAbortRef.current = null
     }
     setBulkDownload(null)
   }

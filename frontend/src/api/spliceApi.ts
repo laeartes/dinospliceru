@@ -1,5 +1,5 @@
 import { apiUrl } from './apiClient'
-import { ApiError, ClientErrorCodes, readErrorResponse } from './apiError'
+import { ApiError, ClientErrorCodes, readErrorResponse, toApiError } from './apiError'
 
 export type SpliceMode = 'ByLength' | 'BySize'
 
@@ -147,45 +147,75 @@ export function getSpliceOutputDownloadUrl(outputId: string): string {
   return apiUrl(`/api/splice-outputs/${encodeURIComponent(outputId)}/download`)
 }
 
-export async function downloadSpliceOutput(
-  outputId: string,
-  fileName: string,
+export interface DownloadSpliceOutputOptions {
   onProgress?: (percent: number) => void
-): Promise<void> {
-  const response = await fetch(getSpliceOutputDownloadUrl(outputId))
-  if (!response.ok) {
-    throw await readErrorResponse(response, `Download failed: HTTP ${response.status}`)
-  }
-
-  saveBlob(await readBlobWithProgress(response, onProgress), fileName)
+  signal?: AbortSignal
 }
 
-async function readBlobWithProgress(
-  response: Response,
-  onProgress?: (percent: number) => void
-): Promise<Blob> {
-  // Without a callback or a streamed body there is nothing to report, so take the simple path
-  if (!onProgress || !response.body) {
-    return response.blob()
-  }
+export function downloadSpliceOutput(
+  outputId: string,
+  fileName: string,
+  options: DownloadSpliceOutputOptions = {}
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('GET', getSpliceOutputDownloadUrl(outputId))
+    // Let the browser own the response buffer instead of piling every chunk into the JS heap
+    xhr.responseType = 'blob'
 
-  const total = Number(response.headers.get('content-length')) || 0
-  if (!total) {
-    return response.blob()
-  }
+    if (options.signal) {
+      if (options.signal.aborted) {
+        reject(new DOMException('Download aborted', 'AbortError'))
+        return
+      }
 
-  const reader = response.body.getReader()
-  const chunks: BlobPart[] = []
-  let received = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    received += value.length
-    onProgress(Math.min(100, Math.round((received / total) * 100)))
-  }
+      options.signal.addEventListener(
+        'abort',
+        () => {
+          xhr.abort()
+          reject(new DOMException('Download aborted', 'AbortError'))
+        },
+        { once: true }
+      )
+    }
 
-  return new Blob(chunks, { type: response.headers.get('content-type') ?? undefined })
+    if (options.onProgress) {
+      xhr.onprogress = (event: ProgressEvent) => {
+        if (event.lengthComputable && event.total > 0) {
+          options.onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+        }
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        saveBlob(xhr.response as Blob, fileName)
+        resolve()
+      } else {
+        void rejectFromXhr(xhr, reject)
+      }
+    }
+
+    xhr.onerror = () => {
+      reject(new ApiError('Network error during download', ClientErrorCodes.NetworkError))
+    }
+
+    xhr.ontimeout = () => {
+      reject(new ApiError('Download request timed out', ClientErrorCodes.RequestTimeout))
+    }
+
+    xhr.send()
+  })
+}
+
+async function rejectFromXhr(xhr: XMLHttpRequest, reject: (reason: unknown) => void): Promise<void> {
+  let body: unknown = null
+  try {
+    body = JSON.parse(await (xhr.response as Blob).text())
+  } catch {
+    // Body was empty or not JSON
+  }
+  reject(toApiError(body, xhr.status, `Download failed: HTTP ${xhr.status}`))
 }
 
 function saveBlob(blob: Blob, fileName: string): void {

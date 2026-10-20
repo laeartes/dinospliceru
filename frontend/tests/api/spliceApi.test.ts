@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   createSpliceJob,
   getSpliceJob,
@@ -231,15 +231,51 @@ describe('spliceApi', () => {
   })
 
   describe('downloadSpliceOutput', () => {
-    it('downloads the output blob with the segment file name', async () => {
-      const blob = new Blob(['segment bytes'], { type: 'video/mp4' })
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        blob: () => Promise.resolve(blob),
-      })
-      vi.stubGlobal('fetch', fetchMock)
+    class FakeXhr {
+      static instances: FakeXhr[] = []
+      method = ''
+      url = ''
+      status = 0
+      response: unknown = null
+      responseType = ''
+      onprogress: ((event: ProgressEvent) => void) | null = null
+      onload: (() => void) | null = null
+      onerror: (() => void) | null = null
+      ontimeout: (() => void) | null = null
+      aborted = false
 
+      constructor() {
+        FakeXhr.instances.push(this)
+      }
+
+      open(method: string, url: string) {
+        this.method = method
+        this.url = url
+      }
+
+      send() {}
+
+      abort() {
+        this.aborted = true
+      }
+
+      respond(status: number, body: unknown) {
+        this.status = status
+        this.response = body
+        this.onload?.()
+      }
+
+      emitProgress(loaded: number, total: number) {
+        this.onprogress?.({ lengthComputable: true, loaded, total } as ProgressEvent)
+      }
+    }
+
+    beforeEach(() => {
+      FakeXhr.instances = []
+      vi.stubGlobal('XMLHttpRequest', FakeXhr)
+    })
+
+    it('downloads the output blob with the segment file name', async () => {
       const createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
       const revokeObjectURL = vi.fn()
       vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
@@ -249,10 +285,16 @@ describe('spliceApi', () => {
         clicked.push(this as HTMLAnchorElement)
       })
 
-      await downloadSpliceOutput('out-1', 'holiday_part01.mp4')
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4')
+      const xhr = FakeXhr.instances[0]
+      expect(xhr.method).toBe('GET')
+      expect(xhr.url).toMatch(/\/api\/splice-outputs\/out-1\/download$/)
+      expect(xhr.responseType).toBe('blob')
 
-      expect(fetchMock).toHaveBeenCalledTimes(1)
-      expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/splice-outputs\/out-1\/download$/)
+      const blob = new Blob(['segment bytes'], { type: 'video/mp4' })
+      xhr.respond(200, blob)
+      await promise
+
       expect(createObjectURL).toHaveBeenCalledWith(blob)
       expect(clicked).toHaveLength(1)
       expect(clicked[0].download).toBe('holiday_part01.mp4')
@@ -263,53 +305,54 @@ describe('spliceApi', () => {
     })
 
     it('reports download progress as the body streams', async () => {
-      const chunks = [new Uint8Array([1, 2, 3, 4, 5]), new Uint8Array([6, 7, 8, 9, 10])]
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        headers: { get: (name: string) => (name === 'content-length' ? '10' : null) },
-        body: {
-          getReader: () => {
-            let index = 0
-            return {
-              read: () =>
-                Promise.resolve(
-                  index < chunks.length
-                    ? { done: false, value: chunks[index++] }
-                    : { done: true, value: undefined }
-                ),
-            }
-          },
-        },
-      })
-      vi.stubGlobal('fetch', fetchMock)
-
       const createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
       vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() })
       vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
 
       const progress: number[] = []
-      await downloadSpliceOutput('out-1', 'holiday_part01.mp4', (percent) => progress.push(percent))
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4', {
+        onProgress: (percent) => progress.push(percent),
+      })
+      const xhr = FakeXhr.instances[0]
+      xhr.emitProgress(5, 10)
+      xhr.emitProgress(10, 10)
+      xhr.respond(200, new Blob(['segment bytes']))
+      await promise
 
       expect(progress).toEqual([50, 100])
       expect(createObjectURL).toHaveBeenCalledTimes(1)
     })
 
     it('throws the server error when the download request fails', async () => {
-      const fetchMock = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 409,
-        json: () =>
-          Promise.resolve({
-            error: 'The splice job is Processing; it must be Ready before its outputs can be downloaded.',
-            code: 'SPLICE_JOB_NOT_READY',
-          }),
-      })
-      vi.stubGlobal('fetch', fetchMock)
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4')
+      const xhr = FakeXhr.instances[0]
+      xhr.respond(
+        409,
+        new Blob(
+          [
+            JSON.stringify({
+              error: 'The splice job is Processing; it must be Ready before its outputs can be downloaded.',
+              code: 'SPLICE_JOB_NOT_READY',
+            }),
+          ],
+          { type: 'application/json' }
+        )
+      )
 
-      await expect(downloadSpliceOutput('out-1', 'holiday_part01.mp4')).rejects.toThrow(
+      await expect(promise).rejects.toThrow(
         'The splice job is Processing; it must be Ready before its outputs can be downloaded.'
       )
+    })
+
+    it('rejects when the download is aborted', async () => {
+      const controller = new AbortController()
+      const promise = downloadSpliceOutput('out-1', 'holiday_part01.mp4', {
+        signal: controller.signal,
+      })
+      controller.abort()
+
+      await expect(promise).rejects.toThrow(/aborted/i)
+      expect(FakeXhr.instances[0].aborted).toBe(true)
     })
   })
 })
