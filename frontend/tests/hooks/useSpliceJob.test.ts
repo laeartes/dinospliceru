@@ -52,8 +52,8 @@ describe('useSpliceJob', () => {
         id: 'job-123',
         status: 'Ready',
         segments: [
-          { name: 'part1.mp4', duration: 30, size: 5000000 },
-          { name: 'part2.mp4', duration: 30, size: 5000000 },
+          { id: 'out-1', name: 'part1.mp4', duration: 30, size: 5000000 },
+          { id: 'out-2', name: 'part2.mp4', duration: 30, size: 5000000 },
         ],
       })
 
@@ -96,8 +96,8 @@ describe('useSpliceJob', () => {
       status: 'ready',
       jobId: 'job-123',
       segments: [
-        { name: 'part1.mp4', duration: 30, size: 5000000 },
-        { name: 'part2.mp4', duration: 30, size: 5000000 },
+        { id: 'out-1', name: 'part1.mp4', duration: 30, size: 5000000 },
+        { id: 'out-2', name: 'part2.mp4', duration: 30, size: 5000000 },
       ],
     })
     expect(getSpy).toHaveBeenCalledTimes(3)
@@ -234,7 +234,7 @@ describe('useSpliceJob', () => {
     vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
       id: 'job-reset',
       status: 'Ready',
-      segments: [{ name: 'res.mp4', duration: 10, size: 1000 }],
+      segments: [{ id: 'out-res', name: 'res.mp4', duration: 10, size: 1000 }],
     })
 
     const { result, rerender } = renderHook(({ id }) => useSpliceJob(id), {
@@ -274,7 +274,7 @@ describe('useSpliceJob', () => {
     vi.spyOn(spliceApi, 'getSpliceJob').mockResolvedValue({
       id: 'job-success',
       status: 'Ready',
-      segments: [{ name: 'out.mp4', duration: 10, size: 100 }],
+      segments: [{ id: 'out-out', name: 'out.mp4', duration: 10, size: 100 }],
     })
 
     const { result } = renderHook(() => useSpliceJob('video-1'))
