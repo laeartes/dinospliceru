@@ -16,6 +16,7 @@ export interface SpliceJobResponse {
 }
 
 export interface SpliceSegment {
+  id: string
   name: string
   duration: number
   size: number
@@ -50,6 +51,7 @@ interface RawSpliceJobDetails {
   message?: string
   detail?: string
   segments?: Array<{
+    id?: string
     name?: string
     fileName?: string
     duration?: number
@@ -58,6 +60,7 @@ interface RawSpliceJobDetails {
     sizeBytes?: number
   }>
   outputs?: Array<{
+    id?: string
     name?: string
     fileName?: string
     duration?: number
@@ -76,6 +79,7 @@ function normalizeSpliceJobDetails(raw: RawSpliceJobDetails, fallbackId: string)
 
   const rawSegments = raw.segments ?? raw.outputs ?? []
   const segments: SpliceSegment[] = rawSegments.map((item, index) => ({
+    id: item.id ?? '',
     name: item.name ?? item.fileName ?? `Segment ${index + 1}`,
     duration: item.duration ?? item.durationSeconds ?? 0,
     size: item.size ?? item.sizeBytes ?? 0,
@@ -137,4 +141,63 @@ export async function getSpliceJob(jobId: string, signal?: AbortSignal): Promise
   }
 
   return normalizeSpliceJobDetails(data, jobId)
+}
+
+export function getSpliceOutputDownloadUrl(outputId: string): string {
+  return apiUrl(`/api/splice-outputs/${encodeURIComponent(outputId)}/download`)
+}
+
+export async function downloadSpliceOutput(
+  outputId: string,
+  fileName: string,
+  onProgress?: (percent: number) => void
+): Promise<void> {
+  const response = await fetch(getSpliceOutputDownloadUrl(outputId))
+  if (!response.ok) {
+    throw await readErrorResponse(response, `Download failed: HTTP ${response.status}`)
+  }
+
+  saveBlob(await readBlobWithProgress(response, onProgress), fileName)
+}
+
+async function readBlobWithProgress(
+  response: Response,
+  onProgress?: (percent: number) => void
+): Promise<Blob> {
+  // Without a callback or a streamed body there is nothing to report, so take the simple path
+  if (!onProgress || !response.body) {
+    return response.blob()
+  }
+
+  const total = Number(response.headers.get('content-length')) || 0
+  if (!total) {
+    return response.blob()
+  }
+
+  const reader = response.body.getReader()
+  const chunks: BlobPart[] = []
+  let received = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+    received += value.length
+    onProgress(Math.min(100, Math.round((received / total) * 100)))
+  }
+
+  return new Blob(chunks, { type: response.headers.get('content-type') ?? undefined })
+}
+
+function saveBlob(blob: Blob, fileName: string): void {
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
 }
