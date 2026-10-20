@@ -33,7 +33,8 @@ public class SpliceJobsController(
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        SpliceJob? job = await FindWithOutputsAsync(id, cancellationToken);
+        // Outputs are not loaded: the database cascade removes their rows, the folder delete their files
+        SpliceJob? job = await db.SpliceJobs.FindAsync([id], cancellationToken);
         if (job is null)
         {
             return SpliceJobNotFound(id);
@@ -49,28 +50,16 @@ public class SpliceJobsController(
             );
         }
 
-        // Copied before saving: EF detaches the deleted outputs and can drop them from job.Outputs
-        List<SpliceOutput> outputs = [.. job.Outputs];
-
-        // Same order as VideoController.Delete: if a file delete fails afterwards we only leave an orphan file
+        // Same order as VideoController.Delete: if the folder delete fails afterwards we only leave orphan files
         db.SpliceJobs.Remove(job);
         await db.SaveChangesAsync(cancellationToken);
 
+        // Removes the job's folder: every segment file, plus any file that has no output row
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
-        foreach (SpliceOutput output in outputs)
-        {
-            string filePath = Path.Combine(storageDirectory, output.StoragePath);
-            if (System.IO.File.Exists(filePath))
-            {
-                System.IO.File.Delete(filePath);
-            }
-        }
-
-        // Only the segment files are written to this folder, so it is empty by now
         string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(storageDirectory, job.Id);
         if (Directory.Exists(outputDirectory))
         {
-            Directory.Delete(outputDirectory);
+            Directory.Delete(outputDirectory, recursive: true);
         }
 
         return NoContent();
