@@ -23,6 +23,81 @@ namespace DinoSplicer.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DinoSplicer.Api.Models.CutJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<double>("EndSeconds")
+                        .HasColumnType("double precision")
+                        .HasColumnName("end_seconds");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("mode");
+
+                    b.Property<double?>("OutputDurationSeconds")
+                        .HasColumnType("double precision")
+                        .HasColumnName("output_duration_seconds");
+
+                    b.Property<string>("OutputFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("output_file_name");
+
+                    b.Property<long?>("OutputSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("output_size_bytes");
+
+                    b.Property<string>("OutputStoragePath")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("output_storage_path");
+
+                    b.Property<Guid>("SourceVideoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_video_id");
+
+                    b.Property<double>("StartSeconds")
+                        .HasColumnType("double precision")
+                        .HasColumnName("start_seconds");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_cut_jobs");
+
+                    b.HasIndex("SourceVideoId")
+                        .HasDatabaseName("ix_cut_jobs_source_video_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_cut_jobs_status");
+
+                    b.ToTable("cut_jobs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cut_jobs_valid_range", "start_seconds >= 0 AND end_seconds > start_seconds");
+                        });
+                });
+
             modelBuilder.Entity("DinoSplicer.Api.Models.SpliceJob", b =>
                 {
                     b.Property<Guid>("Id")
@@ -186,6 +261,18 @@ namespace DinoSplicer.Api.Migrations
                         .HasDatabaseName("ix_videos_status");
 
                     b.ToTable("videos", (string)null);
+                });
+
+            modelBuilder.Entity("DinoSplicer.Api.Models.CutJob", b =>
+                {
+                    b.HasOne("DinoSplicer.Api.Models.Video", "SourceVideo")
+                        .WithMany()
+                        .HasForeignKey("SourceVideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_cut_jobs_videos_source_video_id");
+
+                    b.Navigation("SourceVideo");
                 });
 
             modelBuilder.Entity("DinoSplicer.Api.Models.SpliceJob", b =>

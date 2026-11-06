@@ -16,6 +16,8 @@ public class AppDbContext : DbContext
 
     public DbSet<SpliceOutput> SpliceOutputs => Set<SpliceOutput>();
 
+    public DbSet<CutJob> CutJobs => Set<CutJob>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Video>(entity =>
@@ -127,6 +129,50 @@ public class AppDbContext : DbContext
             // One segment position per job; this index also covers lookups by job
             entity.HasIndex(o => new { o.SpliceJobId, o.SegmentIndex })
                 .IsUnique();
+        });
+
+        modelBuilder.Entity<CutJob>(entity =>
+        {
+            entity.ToTable("cut_jobs", table =>
+                table.HasCheckConstraint("ck_cut_jobs_valid_range", "start_seconds >= 0 AND end_seconds > start_seconds"));
+
+            entity.HasKey(j => j.Id);
+
+            entity.Property(j => j.StartSeconds)
+                .IsRequired();
+
+            entity.Property(j => j.EndSeconds)
+                .IsRequired();
+
+            entity.Property(j => j.Mode)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(j => j.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(j => j.OutputFileName)
+                .HasMaxLength(255);
+
+            entity.Property(j => j.OutputStoragePath)
+                .HasMaxLength(1024);
+
+            entity.Property(j => j.ErrorMessage)
+                .HasMaxLength(500);
+
+            entity.Property(j => j.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("now()");
+
+            entity.HasOne(j => j.SourceVideo)
+                .WithMany()
+                .HasForeignKey(j => j.SourceVideoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(j => j.Status);
         });
     }
 }

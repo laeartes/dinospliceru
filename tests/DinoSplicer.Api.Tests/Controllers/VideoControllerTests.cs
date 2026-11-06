@@ -272,6 +272,44 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
     }
 
     [Fact]
+    public async Task Delete_VideoIsBeingCut_Returns409AndKeepsRowAndFiles()
+    {
+        Video video = await SeedVideoAsync(VideoStatus.Ready);
+        CutJob job = await SeedCutJobAsync(video.Id, CutJobStatus.Processing);
+        string outputDirectory = CutJob.GetOutputDirectory(factory.StorageDirectory, job.Id);
+        Directory.CreateDirectory(outputDirectory);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.Conflict, ApiErrorCodes.VideoCutting);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
+        (await CutJobsExistForVideoAsync(video.Id)).Should().BeTrue();
+        File.Exists(GetFilePath(video)).Should().BeTrue();
+        Directory.Exists(outputDirectory).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_VideoWithCutOutputs_Returns204AndRemovesCutFoldersAndJobRows()
+    {
+        Video video = await SeedVideoAsync(VideoStatus.Ready);
+        CutJob readyJob = await SeedCutJobAsync(video.Id, CutJobStatus.Ready);
+        CutJob failedJobWithoutFolder = await SeedCutJobAsync(video.Id, CutJobStatus.Failed);
+        string outputDirectory = CutJob.GetOutputDirectory(factory.StorageDirectory, readyJob.Id);
+        Directory.CreateDirectory(outputDirectory);
+        await File.WriteAllBytesAsync(Path.Combine(outputDirectory, "holiday_cut.mp4"), new byte[SeededFileSizeBytes]);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeFalse();
+        (await CutJobsExistForVideoAsync(video.Id)).Should().BeFalse();
+        Directory.Exists(outputDirectory).Should().BeFalse();
+        Directory.Exists(CutJob.GetOutputDirectory(factory.StorageDirectory, failedJobWithoutFolder.Id)).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Upload_ValidVideoFile_BackgroundWorkerExtractsMetadataAndSetsReadyStatus()
     {
         string fixturePath = Path.Combine(AppContext.BaseDirectory, "assets", "sample_320x240.mp4");
@@ -416,10 +454,36 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         return job;
     }
 
+    private async Task<CutJob> SeedCutJobAsync(Guid videoId, CutJobStatus status)
+    {
+        CutJob job = new()
+        {
+            SourceVideoId = videoId,
+            StartSeconds = 1.0,
+            EndSeconds = 6.0,
+            Mode = CutMode.FastCopy,
+            Status = status,
+        };
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.CutJobs.Add(job);
+        await db.SaveChangesAsync();
+
+        return job;
+    }
+
     private async Task<bool> VideoExistsInDbAsync(Guid id)
     {
         using IServiceScope scope = factory.Services.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         return await db.Videos.AnyAsync(v => v.Id == id);
+    }
+
+    private async Task<bool> CutJobsExistForVideoAsync(Guid videoId)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.CutJobs.AnyAsync(j => j.SourceVideoId == videoId);
     }
 }

@@ -173,6 +173,20 @@ public class VideoController(
             );
         }
 
+        List<CutJob> cutJobs = await db.CutJobs
+            .AsNoTracking()
+            .Where(j => j.SourceVideoId == id)
+            .ToListAsync(cancellationToken);
+
+        if (cutJobs.Any(j => j.Status == CutJobStatus.Processing))
+        {
+            return ApiErrorResult(
+                StatusCodes.Status409Conflict,
+                "The video cannot be deleted while it is being cut. Try again once cutting has finished.",
+                ApiErrorCodes.VideoCutting
+            );
+        }
+
         // Remove the DB row first: if the file delete then fails we are left with an orphan file,
         // which is harmless, instead of a row pointing at a file that no longer exists
         db.Videos.Remove(video);
@@ -191,6 +205,15 @@ public class VideoController(
         foreach (SpliceJob job in spliceJobs)
         {
             string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(storageDirectory, job.Id);
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, recursive: true);
+            }
+        }
+
+        foreach (CutJob job in cutJobs)
+        {
+            string outputDirectory = CutJob.GetOutputDirectory(storageDirectory, job.Id);
             if (Directory.Exists(outputDirectory))
             {
                 Directory.Delete(outputDirectory, recursive: true);
