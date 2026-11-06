@@ -1,13 +1,12 @@
 using DinoSplicer.Api.Data;
 using DinoSplicer.Api.Models;
 
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DinoSplicer.Api.Services;
 
 public class VideoProcessingWorker(
-    VideoProcessingQueue queue,
+    IBackgroundJobQueue<Video> queue,
     IServiceScopeFactory scopeFactory,
     ILogger<VideoProcessingWorker> logger
 ) : BackgroundService
@@ -33,36 +32,17 @@ public class VideoProcessingWorker(
         }
     }
 
-    public async Task RecoverPendingVideosAsync(CancellationToken cancellationToken)
+    public Task RecoverPendingVideosAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            using IServiceScope scope = scopeFactory.CreateScope();
-            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            List<Guid> pendingIds = await db.Videos
-                .Where(v => v.Status == VideoStatus.Uploaded || v.Status == VideoStatus.Processing)
-                .Select(v => v.Id)
-                .ToListAsync(cancellationToken);
-
-            foreach (Guid id in pendingIds)
-            {
-                await queue.EnqueueAsync(id, cancellationToken);
-            }
-
-            if (pendingIds.Count > 0)
-            {
-                logger.LogInformation("Re-queued {Count} unfinished video(s) on startup", pendingIds.Count);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Host is stopping before recovery completed
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to recover pending videos on startup");
-        }
+        return queue.RecoverPendingAsync(
+            scopeFactory,
+            logger,
+            jobDescription: "video(s)",
+            isPending: v => v.Status == VideoStatus.Uploaded || v.Status == VideoStatus.Processing,
+            orderBy: v => v.CreatedAt,
+            idSelector: v => v.Id,
+            cancellationToken: cancellationToken
+        );
     }
 
     public async Task ProcessAsync(Guid videoId, CancellationToken cancellationToken)
