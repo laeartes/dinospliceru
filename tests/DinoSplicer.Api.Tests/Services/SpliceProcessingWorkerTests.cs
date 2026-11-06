@@ -74,7 +74,7 @@ public class SpliceProcessingWorkerTests(VideoApiFactory factory) : IClassFixtur
     public async Task RecoverPendingJobsAsync_UnfinishedJob_RequeuesJobId(SpliceJobStatus status)
     {
         SpliceJob job = await SeedJobAsync(SpliceMode.ByLength, 3, status);
-        SpliceJobQueue queue = new();
+        BackgroundJobQueue<SpliceJob> queue = new();
 
         await CreateWorker(queue).RecoverPendingJobsAsync(CancellationToken.None);
 
@@ -93,10 +93,10 @@ public class SpliceProcessingWorkerTests(VideoApiFactory factory) : IClassFixtur
         dequeuedIds.Should().Contain(job.Id);
     }
 
-    private SpliceProcessingWorker CreateWorker(SpliceJobQueue? queue = null)
+    private SpliceProcessingWorker CreateWorker(IBackgroundJobQueue<SpliceJob>? queue = null)
     {
         return new SpliceProcessingWorker(
-            queue ?? new SpliceJobQueue(),
+            queue ?? new BackgroundJobQueue<SpliceJob>(),
             factory.Services.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<SpliceProcessingWorker>.Instance
         );

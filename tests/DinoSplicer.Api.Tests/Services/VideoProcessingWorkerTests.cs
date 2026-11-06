@@ -12,7 +12,7 @@ namespace DinoSplicer.Api.Tests.Services;
 
 public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture<VideoApiFactory>
 {
-    private async Task<Video> SeedVideoAsync(VideoStatus status)
+    private async Task<Video> SeedVideoAsync(VideoStatus status, DateTime? createdAt = null)
     {
         using IServiceScope scope = factory.Services.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -24,6 +24,7 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
             ContentType = "video/mp4",
             SizeBytes = 1024,
             Status = status,
+            CreatedAt = createdAt ?? DateTime.UtcNow,
         };
 
         db.Videos.Add(video);
@@ -39,7 +40,7 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         return video.Status;
     }
 
-    private VideoProcessingWorker CreateWorker(VideoProcessingQueue queue, IVideoMetadataExtractor? extractor = null)
+    private VideoProcessingWorker CreateWorker(IBackgroundJobQueue<Video> queue, IVideoMetadataExtractor? extractor = null)
     {
         IServiceScopeFactory scopeFactory = factory.Services.GetRequiredService<IServiceScopeFactory>();
         if (extractor is not null)
@@ -51,7 +52,7 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         return new VideoProcessingWorker(queue, scopeFactory, logger);
     }
 
-    private static async Task<List<Guid>> DrainQueueUntilAsync(VideoProcessingQueue queue, Guid expectedId)
+    private static async Task<List<Guid>> DrainQueueUntilAsync(IBackgroundJobQueue<Video> queue, Guid expectedId)
     {
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
         List<Guid> dequeuedIds = [];
@@ -73,7 +74,7 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
     public async Task RecoverPendingVideosAsync_UnfinishedVideo_RequeuesVideoId(VideoStatus status)
     {
         Video video = await SeedVideoAsync(status);
-        VideoProcessingQueue queue = new();
+        BackgroundJobQueue<Video> queue = new();
         VideoProcessingWorker worker = CreateWorker(queue);
 
         await worker.RecoverPendingVideosAsync(CancellationToken.None);
@@ -88,7 +89,7 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
     public async Task RecoverPendingVideosAsync_FinishedVideo_IsNotRequeued(VideoStatus status)
     {
         Video video = await SeedVideoAsync(status);
-        VideoProcessingQueue queue = new();
+        BackgroundJobQueue<Video> queue = new();
         VideoProcessingWorker worker = CreateWorker(queue);
 
         await worker.RecoverPendingVideosAsync(CancellationToken.None);
@@ -107,13 +108,72 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         dequeuedIds.Should().NotContain(video.Id);
     }
 
+    [Fact]
+    public async Task RecoverPendingAsync_MixedStatuses_EnqueuesOnlyMatchingPendingVideosInOrder()
+    {
+        DateTime baseTime = DateTime.UtcNow;
+        Video olderPending = await SeedVideoAsync(VideoStatus.Processing, baseTime.AddMinutes(-2));
+        Video newerPending = await SeedVideoAsync(VideoStatus.Uploaded, baseTime.AddMinutes(-1));
+        Video readyVideo = await SeedVideoAsync(VideoStatus.Ready, baseTime);
+        Video failedVideo = await SeedVideoAsync(VideoStatus.Failed, baseTime);
+
+        BackgroundJobQueue<Video> queue = new();
+        IServiceScopeFactory scopeFactory = factory.Services.GetRequiredService<IServiceScopeFactory>();
+
+        int count = await queue.RecoverPendingAsync(
+            scopeFactory,
+            NullLogger.Instance,
+            jobDescription: "video(s)",
+            isPending: v => v.Status == VideoStatus.Uploaded || v.Status == VideoStatus.Processing,
+            orderBy: v => v.CreatedAt,
+            idSelector: v => v.Id,
+            cancellationToken: CancellationToken.None
+        );
+
+        count.Should().BeGreaterThanOrEqualTo(2);
+        List<Guid> dequeuedIds = await DrainQueueUntilAsync(queue, newerPending.Id);
+        dequeuedIds.Should().ContainInOrder(olderPending.Id, newerPending.Id);
+        dequeuedIds.Should().NotContain([readyVideo.Id, failedVideo.Id]);
+    }
+
+    [Fact]
+    public async Task RecoverPendingAsync_CancellationRequested_ReturnsZeroWithoutEnqueuing()
+    {
+        await SeedVideoAsync(VideoStatus.Uploaded);
+        BackgroundJobQueue<Video> queue = new();
+        IServiceScopeFactory scopeFactory = factory.Services.GetRequiredService<IServiceScopeFactory>();
+        using CancellationTokenSource cts = new();
+        await cts.CancelAsync();
+
+        int count = await queue.RecoverPendingAsync(
+            scopeFactory,
+            NullLogger.Instance,
+            jobDescription: "video(s)",
+            isPending: v => v.Status == VideoStatus.Uploaded || v.Status == VideoStatus.Processing,
+            orderBy: v => v.CreatedAt,
+            idSelector: v => v.Id,
+            cancellationToken: cts.Token
+        );
+
+        count.Should().Be(0);
+        using CancellationTokenSource drainCts = new(TimeSpan.FromMilliseconds(100));
+        Func<Task> drain = async () =>
+        {
+            await foreach (Guid _ in queue.DequeueAllAsync(drainCts.Token))
+            {
+            }
+        };
+
+        await drain.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     [Theory]
     [InlineData(VideoStatus.Ready)]
     [InlineData(VideoStatus.Failed)]
     public async Task ProcessAsync_AlreadyFinishedVideo_IsSkipped(VideoStatus status)
     {
         Video video = await SeedVideoAsync(status);
-        VideoProcessingWorker worker = CreateWorker(new VideoProcessingQueue(), new HangingExtractor(new TaskCompletionSource()));
+        VideoProcessingWorker worker = CreateWorker(new BackgroundJobQueue<Video>(), new HangingExtractor(new TaskCompletionSource()));
 
         await worker.ProcessAsync(video.Id, CancellationToken.None);
 
@@ -125,7 +185,7 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
     {
         TaskCompletionSource extractorStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Video video = await SeedVideoAsync(VideoStatus.Uploaded);
-        VideoProcessingWorker worker = CreateWorker(new VideoProcessingQueue(), new HangingExtractor(extractorStarted));
+        VideoProcessingWorker worker = CreateWorker(new BackgroundJobQueue<Video>(), new HangingExtractor(extractorStarted));
 
         using CancellationTokenSource cts = new();
         Task processTask = worker.ProcessAsync(video.Id, cts.Token);
