@@ -68,6 +68,22 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         return dequeuedIds;
     }
 
+    private static async Task<List<Guid>> DequeueAsync(IBackgroundJobQueue<Video> queue, int count)
+    {
+        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
+        List<Guid> ids = [];
+        await foreach (Guid id in queue.DequeueAllAsync(cts.Token))
+        {
+            ids.Add(id);
+            if (ids.Count == count)
+            {
+                break;
+            }
+        }
+
+        return ids;
+    }
+
     [Theory]
     [InlineData(VideoStatus.Uploaded)]
     [InlineData(VideoStatus.Processing)]
@@ -131,9 +147,9 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         );
 
         count.Should().BeGreaterThanOrEqualTo(2);
-        List<Guid> dequeuedIds = await DrainQueueUntilAsync(queue, newerPending.Id);
-        dequeuedIds.Should().ContainInOrder(olderPending.Id, newerPending.Id);
-        dequeuedIds.Should().NotContain([readyVideo.Id, failedVideo.Id]);
+        List<Guid> enqueuedIds = await DequeueAsync(queue, count);
+        enqueuedIds.Should().ContainInOrder(olderPending.Id, newerPending.Id);
+        enqueuedIds.Should().NotContain([readyVideo.Id, failedVideo.Id]);
     }
 
     [Fact]
