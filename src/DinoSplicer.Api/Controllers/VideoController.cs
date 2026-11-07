@@ -15,7 +15,7 @@ public class VideoController(
     AppDbContext db,
     IOptions<VideoUploadOptions> uploadOptions,
     IWebHostEnvironment environment,
-    VideoProcessingQueue processingQueue
+    IBackgroundJobQueue<Video> processingQueue
 ) : ApiControllerBase
 
 {

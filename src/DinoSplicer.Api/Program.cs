@@ -38,13 +38,14 @@ GlobalFFOptions.Configure(options =>
     options.TemporaryFilesFolder = Environment.GetEnvironmentVariable("FFMPEG_TEMP_PATH") ?? Path.GetTempPath();
 });
 
+// Open-generic queue resolves an independent Channel<Guid> singleton per job entity type
+builder.Services.AddSingleton(typeof(IBackgroundJobQueue<>), typeof(BackgroundJobQueue<>));
+
 // Metadata extraction runs in the background so the upload response is not blocked
-builder.Services.AddSingleton<VideoProcessingQueue>();
 builder.Services.AddSingleton<IVideoMetadataExtractor>(_ => new FFProbeVideoMetadataExtractor());
 builder.Services.AddHostedService<VideoProcessingWorker>();
 
 // Splicing runs in the background as well; clients poll the job status
-builder.Services.AddSingleton<SpliceJobQueue>();
 builder.Services.AddHostedService<SpliceProcessingWorker>();
 
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>

@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace DinoSplicer.Api.Services;
 
 public class SpliceProcessingWorker(
-    SpliceJobQueue queue,
+    IBackgroundJobQueue<SpliceJob> queue,
     IServiceScopeFactory scopeFactory,
     ILogger<SpliceProcessingWorker> logger
 ) : BackgroundService
@@ -41,37 +41,17 @@ public class SpliceProcessingWorker(
         }
     }
 
-    public async Task RecoverPendingJobsAsync(CancellationToken cancellationToken)
+    public Task RecoverPendingJobsAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            using IServiceScope scope = scopeFactory.CreateScope();
-            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            List<Guid> pendingIds = await db.SpliceJobs
-                .Where(j => j.Status == SpliceJobStatus.Pending || j.Status == SpliceJobStatus.Processing)
-                .OrderBy(j => j.CreatedAt)
-                .Select(j => j.Id)
-                .ToListAsync(cancellationToken);
-
-            foreach (Guid id in pendingIds)
-            {
-                await queue.EnqueueAsync(id, cancellationToken);
-            }
-
-            if (pendingIds.Count > 0)
-            {
-                logger.LogInformation("Re-queued {Count} unfinished splice job(s) on startup", pendingIds.Count);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Host is stopping before recovery completed
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to recover pending splice jobs on startup");
-        }
+        return queue.RecoverPendingAsync(
+            scopeFactory,
+            logger,
+            jobDescription: "splice job(s)",
+            isPending: j => j.Status == SpliceJobStatus.Pending || j.Status == SpliceJobStatus.Processing,
+            orderBy: j => j.CreatedAt,
+            idSelector: j => j.Id,
+            cancellationToken: cancellationToken
+        );
     }
 
     public async Task ProcessAsync(Guid jobId, CancellationToken cancellationToken)
