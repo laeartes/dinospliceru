@@ -8,7 +8,7 @@ namespace DinoSplicer.Api.Controllers;
 
 [ApiController]
 [Route("api/videos/{id:guid}/splice")]
-public class SpliceController(AppDbContext db, SpliceJobQueue spliceQueue) : ApiControllerBase
+public class SpliceController(AppDbContext db, IBackgroundJobQueue<SpliceJob> spliceQueue) : ApiControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> CreateSplice(Guid id, SpliceRequest request, CancellationToken cancellationToken)
