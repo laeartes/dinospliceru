@@ -41,6 +41,8 @@ GlobalFFOptions.Configure(options =>
 
 // Open-generic queue resolves an independent Channel<Guid> singleton per job entity type
 builder.Services.AddSingleton(typeof(IBackgroundJobQueue<>), typeof(BackgroundJobQueue<>));
+builder.Services.AddSingleton<IJobProgressTracker, JobProgressTracker>();
+builder.Services.AddSingleton<IVideoAccessCoordinator, VideoAccessCoordinator>();
 
 // Metadata extraction runs in the background so the upload response is not blocked
 builder.Services.AddSingleton<IVideoMetadataExtractor, FFProbeVideoMetadataExtractor>();

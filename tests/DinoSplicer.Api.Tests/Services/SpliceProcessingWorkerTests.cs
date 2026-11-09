@@ -159,7 +159,63 @@ public class SpliceProcessingWorkerTests(VideoApiFactory factory) : IClassFixtur
         processed.Outputs.Should().BeEmpty();
     }
 
-    private SpliceProcessingWorker CreateWorker(IBackgroundJobQueue<SpliceJob>? queue = null, IVideoSplicer? splicer = null)
+    [Fact]
+    public async Task ProcessAsync_HoldsProcessingLeaseOnSourceVideoWhileSplicing_AndReleasesLeaseWhenFinished()
+    {
+        SpliceJob job = await SeedJobWithoutFileAsync();
+        TaskCompletionSource splicerStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseSplicer = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        VideoAccessCoordinator coordinator = new();
+
+        StubVideoSplicer splicer = new(async (_, outputDirectory, _, _, _, ct) =>
+        {
+            splicerStarted.TrySetResult();
+            await releaseSplicer.Task.WaitAsync(ct);
+            return [new SpliceSegment(1, Path.Combine(outputDirectory, "segment_000.mp4"), 3.0, 2048)];
+        });
+
+        Task processTask = CreateWorker(splicer: splicer, accessCoordinator: coordinator)
+            .ProcessAsync(job.Id, CancellationToken.None);
+
+        await splicerStarted.Task;
+
+        coordinator.TryAcquireDelete(job.SourceVideoId).Should().BeFalse();
+
+        releaseSplicer.SetResult();
+        await processTask;
+
+        coordinator.TryAcquireDelete(job.SourceVideoId).Should().BeTrue();
+        coordinator.CompleteDelete(job.SourceVideoId);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SourceVideoIsBeingDeleted_SetsFailedAndSkipsSplicing()
+    {
+        SpliceJob job = await SeedJobWithoutFileAsync();
+        VideoAccessCoordinator coordinator = new();
+        coordinator.TryAcquireDelete(job.SourceVideoId).Should().BeTrue();
+        bool splicerCalled = false;
+        StubVideoSplicer splicer = new((_, _, _, _, _, _) =>
+        {
+            splicerCalled = true;
+            return Task.FromResult<IReadOnlyList<SpliceSegment>>([]);
+        });
+
+        await CreateWorker(splicer: splicer, accessCoordinator: coordinator)
+            .ProcessAsync(job.Id, CancellationToken.None);
+
+        coordinator.CompleteDelete(job.SourceVideoId);
+        splicerCalled.Should().BeFalse();
+        SpliceJob processed = await LoadJobAsync(job.Id);
+        processed.Status.Should().Be(SpliceJobStatus.Failed);
+        processed.ErrorMessage.Should().Be("The source video is being deleted.");
+    }
+
+    private SpliceProcessingWorker CreateWorker(
+        IBackgroundJobQueue<SpliceJob>? queue = null,
+        IVideoSplicer? splicer = null,
+        IVideoAccessCoordinator? accessCoordinator = null
+    )
     {
         IServiceScopeFactory scopeFactory = factory.Services.GetRequiredService<IServiceScopeFactory>();
         if (splicer is not null)
@@ -170,7 +226,8 @@ public class SpliceProcessingWorkerTests(VideoApiFactory factory) : IClassFixtur
         return new SpliceProcessingWorker(
             queue ?? new BackgroundJobQueue<SpliceJob>(),
             scopeFactory,
-            NullLogger<SpliceProcessingWorker>.Instance
+            NullLogger<SpliceProcessingWorker>.Instance,
+            accessCoordinator ?? new VideoAccessCoordinator()
         );
     }
 

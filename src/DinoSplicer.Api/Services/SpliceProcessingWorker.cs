@@ -9,7 +9,8 @@ namespace DinoSplicer.Api.Services;
 public class SpliceProcessingWorker(
     IBackgroundJobQueue<SpliceJob> queue,
     IServiceScopeFactory scopeFactory,
-    ILogger<SpliceProcessingWorker> logger
+    ILogger<SpliceProcessingWorker> logger,
+    IVideoAccessCoordinator accessCoordinator
 ) : BackgroundService
 {
     // Segments are stored under <storage>/splices/<job id>/
@@ -72,6 +73,29 @@ public class SpliceProcessingWorker(
         }
 
         Video video = job.SourceVideo;
+
+        using IDisposable? lease = accessCoordinator.TryAcquireProcessingLease(video.Id);
+        if (lease is null)
+        {
+            logger.LogInformation("Source video {VideoId} for splice job {JobId} is being deleted, skipping", video.Id, jobId);
+
+            // Leaving the job Pending would strand it forever if the delete does not go through
+            if (job.Status is not (SpliceJobStatus.Ready or SpliceJobStatus.Failed))
+            {
+                job.Status = SpliceJobStatus.Failed;
+                job.ErrorMessage = "The source video is being deleted.";
+                await db.SaveChangesAsync(CancellationToken.None);
+            }
+
+            return;
+        }
+
+        // Re-check existence under the lease in case a delete completed right before the lease was acquired
+        if (!await db.Videos.AnyAsync(v => v.Id == video.Id, cancellationToken))
+        {
+            logger.LogWarning("Source video {VideoId} for splice job {JobId} was deleted before splicing started, skipping", video.Id, jobId);
+            return;
+        }
 
         if (job.Status is SpliceJobStatus.Ready or SpliceJobStatus.Failed)
         {

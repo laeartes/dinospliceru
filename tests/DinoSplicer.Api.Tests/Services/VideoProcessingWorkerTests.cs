@@ -40,7 +40,11 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         return video.Status;
     }
 
-    private VideoProcessingWorker CreateWorker(IBackgroundJobQueue<Video> queue, IVideoMetadataExtractor? extractor = null)
+    private VideoProcessingWorker CreateWorker(
+        IBackgroundJobQueue<Video> queue,
+        IVideoMetadataExtractor? extractor = null,
+        IVideoAccessCoordinator? accessCoordinator = null
+    )
     {
         IServiceScopeFactory scopeFactory = factory.Services.GetRequiredService<IServiceScopeFactory>();
         if (extractor is not null)
@@ -49,7 +53,7 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         }
 
         ILogger<VideoProcessingWorker> logger = NullLogger<VideoProcessingWorker>.Instance;
-        return new VideoProcessingWorker(queue, scopeFactory, logger);
+        return new VideoProcessingWorker(queue, scopeFactory, logger, accessCoordinator ?? new VideoAccessCoordinator());
     }
 
     private static async Task<List<Guid>> DrainQueueUntilAsync(IBackgroundJobQueue<Video> queue, Guid expectedId)
@@ -211,6 +215,48 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
 
         await FluentActions.Awaiting(() => processTask).Should().ThrowAsync<OperationCanceledException>();
         (await GetStatusAsync(video.Id)).Should().Be(VideoStatus.Uploaded);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_HoldsProcessingLeaseWhileRunning_AndReleasesLeaseWhenFinished()
+    {
+        TaskCompletionSource extractorStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseExtractor = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Video video = await SeedVideoAsync(VideoStatus.Uploaded);
+        VideoAccessCoordinator coordinator = new();
+        VideoProcessingWorker worker = CreateWorker(
+            new BackgroundJobQueue<Video>(),
+            new GatedExtractor(extractorStarted, releaseExtractor),
+            coordinator
+        );
+
+        Task processTask = worker.ProcessAsync(video.Id, CancellationToken.None);
+        await extractorStarted.Task;
+
+        // While worker is running, delete is blocked by the active processing lease
+        coordinator.TryAcquireDelete(video.Id).Should().BeFalse();
+
+        releaseExtractor.SetResult();
+        await processTask;
+
+        // Once worker finishes, lease is disposed and delete succeeds
+        coordinator.TryAcquireDelete(video.Id).Should().BeTrue();
+        coordinator.CompleteDelete(video.Id);
+    }
+
+    private sealed class GatedExtractor(TaskCompletionSource started, TaskCompletionSource gate) : IVideoMetadataExtractor
+    {
+        public async Task<VideoMetadata> ExtractMetadata(
+            string filePath,
+            bool extractCodec = true,
+            TimeSpan? timeout = null,
+            CancellationToken cancellationToken = default
+        )
+        {
+            started.TrySetResult();
+            await gate.Task.WaitAsync(cancellationToken);
+            return new VideoMetadata(TimeSpan.FromSeconds(5), new Resolution(320, 240), "h264");
+        }
     }
 
     private sealed class HangingExtractor(TaskCompletionSource started) : IVideoMetadataExtractor
