@@ -1,5 +1,4 @@
 using DinoSplicer.Api.Data;
-using DinoSplicer.Api.Exceptions;
 using DinoSplicer.Api.Models;
 using DinoSplicer.Api.Services;
 
@@ -14,12 +13,20 @@ public class SpliceController(AppDbContext db, IBackgroundJobQueue<SpliceJob> sp
     [HttpPost]
     public async Task<IActionResult> CreateSplice(Guid id, SpliceRequest request, CancellationToken cancellationToken)
     {
-        Video video = await db.Videos.FindAsync([id], cancellationToken)
-            ?? throw new ResourceNotFoundException($"No video with id '{id}' exists.", ApiErrorCodes.VideoNotFound);
+        Video? video = await db.Videos.FindAsync([id], cancellationToken);
+        if (video is null)
+        {
+            return ApiErrorResult(
+                StatusCodes.Status404NotFound,
+                $"No video with id '{id}' exists.",
+                ApiErrorCodes.VideoNotFound
+            );
+        }
 
         if (video.Status != VideoStatus.Ready)
         {
-            throw new ResourceConflictException(
+            return ApiErrorResult(
+                StatusCodes.Status409Conflict,
                 $"The video is {video.Status}; it must be Ready before it can be spliced.",
                 ApiErrorCodes.VideoNotReady
             );
@@ -28,7 +35,7 @@ public class SpliceController(AppDbContext db, IBackgroundJobQueue<SpliceJob> sp
         string? valueError = SpliceRequestValidator.Validate(request.Mode, request.Value, video);
         if (valueError is not null)
         {
-            throw new DomainValidationException(valueError, ApiErrorCodes.InvalidSpliceValue);
+            return ApiErrorResult(StatusCodes.Status400BadRequest, valueError, ApiErrorCodes.InvalidSpliceValue);
         }
 
         SpliceJob job = new()
