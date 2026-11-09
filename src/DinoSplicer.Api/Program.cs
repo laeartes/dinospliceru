@@ -1,10 +1,10 @@
 using DinoSplicer.Api.Data;
+using DinoSplicer.Api.Exceptions;
 using DinoSplicer.Api.Models;
 using DinoSplicer.Api.Services;
 
 using FFMpegCore;
 
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -64,6 +64,8 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
     options.SuppressMapClientErrors = true;
 });
 
+builder.Services.AddExceptionHandler<DomainExceptionHandler>();
+
 // Local development CORS policy (Vite frontend)
 if (builder.Environment.IsDevelopment())
 {
@@ -86,17 +88,7 @@ if (app.Environment.IsDevelopment())
     app.UseCors("DevCors");
 }
 
-app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
-{
-    Exception? exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-
-    int statusCode = exception is Microsoft.AspNetCore.Http.BadHttpRequestException badRequest
-        ? badRequest.StatusCode
-        : StatusCodes.Status500InternalServerError;
-
-    context.Response.StatusCode = statusCode;
-    await context.Response.WriteAsJsonAsync(ApiError.ForStatusCode(statusCode));
-}));
+app.UseExceptionHandler(_ => { });
 
 app.UseStatusCodePages(async statusCodeContext =>
 {
