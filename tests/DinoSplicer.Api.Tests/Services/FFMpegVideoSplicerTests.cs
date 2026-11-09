@@ -3,10 +3,13 @@ using DinoSplicer.Api.Services;
 
 using FluentAssertions;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace DinoSplicer.Api.Tests.Services;
 
-public class VideoSplicerTests : IDisposable
+public class FFMpegVideoSplicerTests : IDisposable
 {
+    private readonly FFMpegVideoSplicer _splicer = new();
     private readonly string _outputDirectory = Path.Combine(Path.GetTempPath(), "dinosplicer-tests", Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -22,7 +25,7 @@ public class VideoSplicerTests : IDisposable
     {
         string sourcePath = await SampleVideo.GetPathAsync();
 
-        IReadOnlyList<SpliceSegment> segments = await VideoSplicer.Splice(sourcePath, _outputDirectory, SpliceMode.ByLength, 3);
+        IReadOnlyList<SpliceSegment> segments = await _splicer.Splice(sourcePath, _outputDirectory, SpliceMode.ByLength, 3);
 
         // 10 seconds in 3 second pieces: three full segments and a 1 second remainder
         segments.Select(s => s.Index).Should().Equal(1, 2, 3, 4);
@@ -37,7 +40,7 @@ public class VideoSplicerTests : IDisposable
         string sourcePath = await SampleVideo.GetPathAsync();
         long limit = new FileInfo(sourcePath).Length / 3;
 
-        IReadOnlyList<SpliceSegment> segments = await VideoSplicer.Splice(sourcePath, _outputDirectory, SpliceMode.BySize, limit);
+        IReadOnlyList<SpliceSegment> segments = await _splicer.Splice(sourcePath, _outputDirectory, SpliceMode.BySize, limit);
 
         segments.Should().HaveCountGreaterThanOrEqualTo(3);
         segments.Should().AllSatisfy(s => s.SizeBytes.Should().BeLessThanOrEqualTo(limit));
@@ -50,7 +53,7 @@ public class VideoSplicerTests : IDisposable
         string sourcePath = await SampleVideo.GetLowBitratePathAsync();
         long limit = new FileInfo(sourcePath).Length / 3;
 
-        IReadOnlyList<SpliceSegment> segments = await VideoSplicer.Splice(sourcePath, _outputDirectory, SpliceMode.BySize, limit);
+        IReadOnlyList<SpliceSegment> segments = await _splicer.Splice(sourcePath, _outputDirectory, SpliceMode.BySize, limit);
 
         segments.Should().HaveCountGreaterThanOrEqualTo(3);
         segments.Should().AllSatisfy(s => s.SizeBytes.Should().BeLessThanOrEqualTo(limit));
@@ -64,7 +67,7 @@ public class VideoSplicerTests : IDisposable
         string existingFile = Path.Combine(_outputDirectory, "segment_000.mp4");
         await File.WriteAllTextAsync(existingFile, "earlier output");
 
-        Func<Task> splice = () => VideoSplicer.Splice(sourcePath, _outputDirectory, SpliceMode.ByLength, 3);
+        Func<Task> splice = () => _splicer.Splice(sourcePath, _outputDirectory, SpliceMode.ByLength, 3);
 
         // overwriteExisting defaults to false
         await splice.Should().ThrowAsync<IOException>();
@@ -82,7 +85,7 @@ public class VideoSplicerTests : IDisposable
             packets.Add((second + 0.5, 100, false));
         }
 
-        List<double> cutTimes = VideoSplicer.PlanCutTimes(packets, maxBytes: 1000);
+        List<double> cutTimes = FFMpegVideoSplicer.PlanCutTimes(packets, maxBytes: 1000);
 
         cutTimes.Should().Equal(2.0);
     }
@@ -92,8 +95,20 @@ public class VideoSplicerTests : IDisposable
     {
         List<(double Time, long Size, bool IsKeyframe)> packets = [(0, 100, true), (1, 2000, true)];
 
-        Action plan = () => VideoSplicer.PlanCutTimes(packets, maxBytes: 1000);
+        Action plan = () => FFMpegVideoSplicer.PlanCutTimes(packets, maxBytes: 1000);
 
         plan.Should().Throw<SpliceException>();
+    }
+
+    [Fact]
+    public void ServiceProvider_RegisteredWithoutFactory_ResolvesFFMpegVideoSplicer()
+    {
+        ServiceCollection services = new();
+        services.AddSingleton<IVideoSplicer, FFMpegVideoSplicer>();
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IVideoSplicer splicer = provider.GetRequiredService<IVideoSplicer>();
+
+        splicer.Should().BeOfType<FFMpegVideoSplicer>();
     }
 }

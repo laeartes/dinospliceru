@@ -10,6 +10,7 @@ public class FFProbeVideoMetadataExtractor : IVideoMetadataExtractor
 
     private readonly Func<string, CancellationToken, Task<IMediaAnalysis>> _analyse;
 
+    [ActivatorUtilitiesConstructor]
     public FFProbeVideoMetadataExtractor()
         : this((path, token) => FFProbe.AnalyseAsync(path, cancellationToken: token))
     {

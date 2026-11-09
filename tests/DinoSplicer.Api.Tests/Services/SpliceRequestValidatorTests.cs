@@ -3,10 +3,14 @@ using DinoSplicer.Api.Services;
 
 using FluentAssertions;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace DinoSplicer.Api.Tests.Services;
 
 public class SpliceRequestValidatorTests
 {
+    private readonly SpliceRequestValidator _validator = new();
+
     private static Video CreateVideo(double? durationSeconds = 120, long sizeBytes = 10_485_760) => new()
     {
         FileName = "source.mp4",
@@ -23,7 +27,7 @@ public class SpliceRequestValidatorTests
     [InlineData(120.0)]
     public void Validate_ByLengthWithinRange_ReturnsNull(double value)
     {
-        SpliceRequestValidator.Validate(SpliceMode.ByLength, value, CreateVideo()).Should().BeNull();
+        _validator.Validate(SpliceMode.ByLength, value, CreateVideo()).Should().BeNull();
     }
 
     [Theory]
@@ -31,13 +35,13 @@ public class SpliceRequestValidatorTests
     [InlineData(120.5)]
     public void Validate_ByLengthOutsideRange_ReturnsError(double value)
     {
-        SpliceRequestValidator.Validate(SpliceMode.ByLength, value, CreateVideo()).Should().NotBeNullOrEmpty();
+        _validator.Validate(SpliceMode.ByLength, value, CreateVideo()).Should().NotBeNullOrEmpty();
     }
 
     [Fact]
     public void Validate_ByLengthUnknownDuration_SkipsUpperBound()
     {
-        SpliceRequestValidator.Validate(SpliceMode.ByLength, 100_000, CreateVideo(durationSeconds: null)).Should().BeNull();
+        _validator.Validate(SpliceMode.ByLength, 100_000, CreateVideo(durationSeconds: null)).Should().BeNull();
     }
 
     [Theory]
@@ -46,7 +50,7 @@ public class SpliceRequestValidatorTests
     [InlineData(10_485_760.0)]
     public void Validate_BySizeWithinRange_ReturnsNull(double value)
     {
-        SpliceRequestValidator.Validate(SpliceMode.BySize, value, CreateVideo()).Should().BeNull();
+        _validator.Validate(SpliceMode.BySize, value, CreateVideo()).Should().BeNull();
     }
 
     [Theory]
@@ -54,12 +58,24 @@ public class SpliceRequestValidatorTests
     [InlineData(10_485_761.0)]
     public void Validate_BySizeOutsideRange_ReturnsError(double value)
     {
-        SpliceRequestValidator.Validate(SpliceMode.BySize, value, CreateVideo()).Should().NotBeNullOrEmpty();
+        _validator.Validate(SpliceMode.BySize, value, CreateVideo()).Should().NotBeNullOrEmpty();
     }
 
     [Fact]
     public void Validate_UndefinedMode_ReturnsError()
     {
-        SpliceRequestValidator.Validate((SpliceMode)99, 30, CreateVideo()).Should().NotBeNullOrEmpty();
+        _validator.Validate((SpliceMode)99, 30, CreateVideo()).Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void ServiceProvider_RegisteredWithoutFactory_ResolvesSpliceRequestValidator()
+    {
+        ServiceCollection services = new();
+        services.AddSingleton<ISpliceRequestValidator, SpliceRequestValidator>();
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ISpliceRequestValidator validator = provider.GetRequiredService<ISpliceRequestValidator>();
+
+        validator.Should().BeOfType<SpliceRequestValidator>();
     }
 }

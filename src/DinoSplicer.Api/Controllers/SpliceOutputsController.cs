@@ -15,11 +15,10 @@ namespace DinoSplicer.Api.Controllers;
 public class SpliceOutputsController(
     AppDbContext db,
     IOptions<VideoUploadOptions> uploadOptions,
-    IWebHostEnvironment environment
+    IWebHostEnvironment environment,
+    IContentTypeProvider contentTypeProvider
 ) : ApiControllerBase
 {
-    private static readonly FileExtensionContentTypeProvider _contentTypes = new();
-
     private readonly VideoUploadOptions _options = uploadOptions.Value;
 
     [HttpGet("{id:guid}/download")]
@@ -60,7 +59,7 @@ public class SpliceOutputsController(
         }
 
         // Segments keep the source video's extension, so the extension tells the content type
-        if (!_contentTypes.TryGetContentType(output.FileName, out string? contentType))
+        if (!contentTypeProvider.TryGetContentType(output.FileName, out string? contentType))
         {
             contentType = MediaTypeNames.Application.Octet;
         }

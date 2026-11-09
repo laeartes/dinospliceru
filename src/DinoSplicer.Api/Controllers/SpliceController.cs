@@ -8,7 +8,11 @@ namespace DinoSplicer.Api.Controllers;
 
 [ApiController]
 [Route("api/videos/{id:guid}/splice")]
-public class SpliceController(AppDbContext db, IBackgroundJobQueue<SpliceJob> spliceQueue) : ApiControllerBase
+public class SpliceController(
+    AppDbContext db,
+    IBackgroundJobQueue<SpliceJob> spliceQueue,
+    ISpliceRequestValidator validator
+) : ApiControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> CreateSplice(Guid id, SpliceRequest request, CancellationToken cancellationToken)
@@ -32,7 +36,7 @@ public class SpliceController(AppDbContext db, IBackgroundJobQueue<SpliceJob> sp
             );
         }
 
-        string? valueError = SpliceRequestValidator.Validate(request.Mode, request.Value, video);
+        string? valueError = validator.Validate(request.Mode, request.Value, video);
         if (valueError is not null)
         {
             return ApiErrorResult(StatusCodes.Status400BadRequest, valueError, ApiErrorCodes.InvalidSpliceValue);
