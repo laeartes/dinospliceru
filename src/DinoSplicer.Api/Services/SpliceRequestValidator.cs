@@ -4,13 +4,13 @@ using DinoSplicer.Api.Models;
 
 namespace DinoSplicer.Api.Services;
 
-public static class SpliceRequestValidator
+public class SpliceRequestValidator : ISpliceRequestValidator
 {
     public const double MinSegmentSeconds = 1;
     public const double MinSegmentBytes = 1024 * 1024;
 
     // Returns an error message for the value, or null when it is acceptable for this video
-    public static string? Validate(SpliceMode mode, double value, Video video)
+    public string? Validate(SpliceMode mode, double value, Video video)
     {
         return mode switch
         {

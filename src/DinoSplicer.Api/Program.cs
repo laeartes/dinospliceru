@@ -46,6 +46,7 @@ builder.Services.AddSingleton<IVideoMetadataExtractor, FFProbeVideoMetadataExtra
 builder.Services.AddHostedService<VideoProcessingWorker>();
 
 // Splicing runs in the background as well; clients poll the job status
+builder.Services.AddSingleton<ISpliceRequestValidator, SpliceRequestValidator>();
 builder.Services.AddHostedService<SpliceProcessingWorker>();
 
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
