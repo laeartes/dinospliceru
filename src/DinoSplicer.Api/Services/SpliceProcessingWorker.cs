@@ -78,6 +78,15 @@ public class SpliceProcessingWorker(
         if (lease is null)
         {
             logger.LogInformation("Source video {VideoId} for splice job {JobId} is being deleted, skipping", video.Id, jobId);
+
+            // Leaving the job Pending would strand it forever if the delete does not go through
+            if (job.Status is not (SpliceJobStatus.Ready or SpliceJobStatus.Failed))
+            {
+                job.Status = SpliceJobStatus.Failed;
+                job.ErrorMessage = "The source video is being deleted.";
+                await db.SaveChangesAsync(CancellationToken.None);
+            }
+
             return;
         }
 

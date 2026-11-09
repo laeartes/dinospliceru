@@ -148,7 +148,7 @@ public class VideoController(
         {
             return ApiErrorResult(
                 StatusCodes.Status409Conflict,
-                "The video cannot be deleted while it is being processed. Try again once processing has finished.",
+                "The video is currently in use and cannot be deleted. Try again shortly.",
                 ApiErrorCodes.VideoProcessing
             );
         }

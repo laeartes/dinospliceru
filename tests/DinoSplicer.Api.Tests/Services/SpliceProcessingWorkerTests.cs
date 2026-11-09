@@ -188,6 +188,29 @@ public class SpliceProcessingWorkerTests(VideoApiFactory factory) : IClassFixtur
         coordinator.CompleteDelete(job.SourceVideoId);
     }
 
+    [Fact]
+    public async Task ProcessAsync_SourceVideoIsBeingDeleted_SetsFailedAndSkipsSplicing()
+    {
+        SpliceJob job = await SeedJobWithoutFileAsync();
+        VideoAccessCoordinator coordinator = new();
+        coordinator.TryAcquireDelete(job.SourceVideoId).Should().BeTrue();
+        bool splicerCalled = false;
+        StubVideoSplicer splicer = new((_, _, _, _, _, _) =>
+        {
+            splicerCalled = true;
+            return Task.FromResult<IReadOnlyList<SpliceSegment>>([]);
+        });
+
+        await CreateWorker(splicer: splicer, accessCoordinator: coordinator)
+            .ProcessAsync(job.Id, CancellationToken.None);
+
+        coordinator.CompleteDelete(job.SourceVideoId);
+        splicerCalled.Should().BeFalse();
+        SpliceJob processed = await LoadJobAsync(job.Id);
+        processed.Status.Should().Be(SpliceJobStatus.Failed);
+        processed.ErrorMessage.Should().Be("The source video is being deleted.");
+    }
+
     private SpliceProcessingWorker CreateWorker(
         IBackgroundJobQueue<SpliceJob>? queue = null,
         IVideoSplicer? splicer = null,

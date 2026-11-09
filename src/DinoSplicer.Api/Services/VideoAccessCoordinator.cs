@@ -43,7 +43,7 @@ public class VideoAccessCoordinator : IVideoAccessCoordinator
                     continue;
                 }
 
-                if ((entry.ActiveReaders > 0) || entry.IsDeleting)
+                if (entry.ActiveReaders > 0 || entry.IsDeleting)
                 {
                     return false;
                 }
