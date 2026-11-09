@@ -42,7 +42,7 @@ GlobalFFOptions.Configure(options =>
 builder.Services.AddSingleton(typeof(IBackgroundJobQueue<>), typeof(BackgroundJobQueue<>));
 
 // Metadata extraction runs in the background so the upload response is not blocked
-builder.Services.AddSingleton<IVideoMetadataExtractor>(_ => new FFProbeVideoMetadataExtractor());
+builder.Services.AddSingleton<IVideoMetadataExtractor, FFProbeVideoMetadataExtractor>();
 builder.Services.AddHostedService<VideoProcessingWorker>();
 
 // Splicing runs in the background as well; clients poll the job status

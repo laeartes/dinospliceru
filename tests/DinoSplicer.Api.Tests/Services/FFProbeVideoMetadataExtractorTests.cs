@@ -6,6 +6,8 @@ using FFMpegCore.Builders.MetaData;
 
 using FluentAssertions;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace DinoSplicer.Api.Tests.Services;
 
 public class FFProbeVideoMetadataExtractorTests
@@ -102,5 +104,17 @@ public class FFProbeVideoMetadataExtractorTests
         Func<Task> act = () => extractor.ExtractMetadata(filePath: "corrupt.mp4");
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("ffprobe failed");
+    }
+
+    [Fact]
+    public void ServiceProvider_RegisteredWithoutFactory_ResolvesFFProbeVideoMetadataExtractor()
+    {
+        ServiceCollection services = new();
+        services.AddSingleton<IVideoMetadataExtractor, FFProbeVideoMetadataExtractor>();
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IVideoMetadataExtractor extractor = provider.GetRequiredService<IVideoMetadataExtractor>();
+
+        extractor.Should().BeOfType<FFProbeVideoMetadataExtractor>();
     }
 }
