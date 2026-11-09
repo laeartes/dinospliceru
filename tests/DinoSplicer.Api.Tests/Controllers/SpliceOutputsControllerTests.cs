@@ -8,12 +8,22 @@ using DinoSplicer.Api.Services;
 
 using FluentAssertions;
 
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DinoSplicer.Api.Tests.Controllers;
 
 public class SpliceOutputsControllerTests(VideoApiFactory factory) : IClassFixture<VideoApiFactory>
 {
+    [Fact]
+    public void ServiceProvider_DefaultConfiguration_ResolvesRegisteredSingletons()
+    {
+        factory.Services.GetRequiredService<IVideoMetadataExtractor>().Should().BeOfType<FFProbeVideoMetadataExtractor>();
+        factory.Services.GetRequiredService<IVideoSplicer>().Should().BeOfType<FFMpegVideoSplicer>();
+        factory.Services.GetRequiredService<ISpliceRequestValidator>().Should().BeOfType<SpliceRequestValidator>();
+        factory.Services.GetRequiredService<IContentTypeProvider>().Should().BeOfType<FileExtensionContentTypeProvider>();
+    }
+
     [Fact]
     public async Task Download_ReadyOutput_ReturnsFileWithAttachmentHeaders()
     {

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -48,6 +49,7 @@ builder.Services.AddHostedService<VideoProcessingWorker>();
 // Splicing runs in the background as well; clients poll the job status
 builder.Services.AddSingleton<ISpliceRequestValidator, SpliceRequestValidator>();
 builder.Services.AddSingleton<IVideoSplicer, FFMpegVideoSplicer>();
+builder.Services.AddSingleton<IContentTypeProvider, FileExtensionContentTypeProvider>();
 builder.Services.AddHostedService<SpliceProcessingWorker>();
 
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
