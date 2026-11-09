@@ -242,6 +242,32 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
     }
 
     [Fact]
+    public async Task Delete_WhileWorkerHoldsActiveProcessingLease_Returns409BeforeTouchingDbOrDiskAndSucceedsOnceReleased()
+    {
+        // Seed as Ready in the DB to prove the in-memory lease alone blocks deletion (closing the TOCTOU window)
+        Video video = await SeedVideoAsync(VideoStatus.Ready);
+        IVideoAccessCoordinator coordinator = factory.Services.GetRequiredService<IVideoAccessCoordinator>();
+        HttpClient client = factory.CreateClient();
+
+        using (IDisposable? lease = coordinator.TryAcquireProcessingLease(video.Id))
+        {
+            lease.Should().NotBeNull();
+
+            HttpResponseMessage conflictResponse = await client.DeleteAsync(VideoUrl(video.Id));
+
+            await conflictResponse.ShouldBeApiErrorAsync(HttpStatusCode.Conflict, ApiErrorCodes.VideoProcessing);
+            (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
+            File.Exists(GetFilePath(video)).Should().BeTrue();
+        }
+
+        HttpResponseMessage deleteResponse = await client.DeleteAsync(VideoUrl(video.Id));
+
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeFalse();
+        File.Exists(GetFilePath(video)).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Delete_VideoIsBeingSpliced_Returns409AndKeepsRowAndFile()
     {
         Video video = await SeedVideoAsync(VideoStatus.Ready);
