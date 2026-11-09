@@ -6,7 +6,7 @@ using FFMpegCore;
 
 namespace DinoSplicer.Api.Services;
 
-public static class VideoSplicer
+public class FFMpegVideoSplicer : IVideoSplicer
 {
     // Each packet also costs an entry in the container's index (about 15 bytes in MP4). On low-bitrate videos,
     // where packets are only a few hundred bytes, that adds up to several percent of the file.
@@ -17,7 +17,7 @@ public static class VideoSplicer
 
     private const string SegmentListFileName = "segments.csv";
 
-    public static async Task<IReadOnlyList<SpliceSegment>> Splice(
+    public async Task<IReadOnlyList<SpliceSegment>> Splice(
         string sourcePath,
         string outputDirectory,
         SpliceMode mode,

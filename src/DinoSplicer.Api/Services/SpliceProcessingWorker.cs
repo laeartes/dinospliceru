@@ -58,6 +58,7 @@ public class SpliceProcessingWorker(
     {
         using IServiceScope scope = scopeFactory.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        IVideoSplicer splicer = scope.ServiceProvider.GetRequiredService<IVideoSplicer>();
         VideoUploadOptions options = scope.ServiceProvider.GetRequiredService<IOptions<VideoUploadOptions>>().Value;
         IWebHostEnvironment environment = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
 
@@ -90,11 +91,9 @@ public class SpliceProcessingWorker(
         {
             string sourcePath = Path.Combine(storageDirectory, video.FileName);
 
-
-
             IReadOnlyList<SpliceSegment> segments = resuming
-                ? await VideoSplicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, overwriteExisting: true, cancellationToken: cancellationToken)
-                : await VideoSplicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, cancellationToken: cancellationToken);
+                ? await splicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, overwriteExisting: true, cancellationToken: cancellationToken)
+                : await splicer.Splice(sourcePath, outputDirectory, job.Mode, job.SegmentValue, cancellationToken: cancellationToken);
 
             string baseName = Path.GetFileNameWithoutExtension(video.OriginalFileName);
             foreach (SpliceSegment segment in segments)
