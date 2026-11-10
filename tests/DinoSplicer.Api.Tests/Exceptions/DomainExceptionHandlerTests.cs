@@ -90,6 +90,23 @@ public class DomainExceptionHandlerTests
     }
 
     [Fact]
+    public async Task TryHandleAsync_ClientCancelledRequest_LogsInformationWithoutWritingErrorResponse()
+    {
+        RecordingLogger<DomainExceptionHandler> logger = new();
+        DomainExceptionHandler handler = new(logger);
+        (DefaultHttpContext context, MemoryStream body) = CreateHttpContext();
+        using CancellationTokenSource abortedCts = new();
+        await abortedCts.CancelAsync();
+        context.RequestAborted = abortedCts.Token;
+
+        bool handled = await handler.TryHandleAsync(context, new OperationCanceledException(abortedCts.Token), CancellationToken.None);
+
+        handled.Should().BeTrue();
+        body.Length.Should().Be(0);
+        logger.Entries.Should().ContainSingle(e => e.Level == LogLevel.Information && e.Message == "Request was cancelled by the client");
+    }
+
+    [Fact]
     public async Task TryHandleAsync_UnexpectedException_WritesSafe500ApiErrorWithoutLeakingDetailsAndLogsError()
     {
         RecordingLogger<DomainExceptionHandler> logger = new();

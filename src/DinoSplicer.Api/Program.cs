@@ -88,7 +88,7 @@ if (app.Environment.IsDevelopment())
     app.UseCors("DevCors");
 }
 
-app.UseExceptionHandler(_ => { });
+app.UseExceptionHandler();
 
 app.UseStatusCodePages(async statusCodeContext =>
 {

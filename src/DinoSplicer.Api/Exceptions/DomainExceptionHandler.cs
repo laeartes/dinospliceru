@@ -46,6 +46,11 @@ public class DomainExceptionHandler(ILogger<DomainExceptionHandler> logger) : IE
             response = ApiError.ForStatusCode(statusCode);
             logger.LogWarning(badRequest, "Bad HTTP request handled with status {StatusCode}", statusCode);
         }
+        else if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        {
+            logger.LogInformation("Request was cancelled by the client");
+            return true;
+        }
         else
         {
             statusCode = StatusCodes.Status500InternalServerError;
