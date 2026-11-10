@@ -187,6 +187,20 @@ public class VideoController(
             );
         }
 
+        List<CompressionJob> compressionJobs = await db.CompressionJobs
+            .AsNoTracking()
+            .Where(j => j.SourceVideoId == id)
+            .ToListAsync(cancellationToken);
+
+        if (compressionJobs.Any(j => j.Status == CompressionJobStatus.Processing))
+        {
+            return ApiErrorResult(
+                StatusCodes.Status409Conflict,
+                "The video cannot be deleted while it is being compressed. Try again once compression has finished.",
+                ApiErrorCodes.VideoCompressing
+            );
+        }
+
         // Remove the DB row first: if the file delete then fails we are left with an orphan file,
         // which is harmless, instead of a row pointing at a file that no longer exists
         db.Videos.Remove(video);
@@ -214,6 +228,15 @@ public class VideoController(
         foreach (CutJob job in cutJobs)
         {
             string outputDirectory = CutJob.GetOutputDirectory(storageDirectory, job.Id);
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, recursive: true);
+            }
+        }
+
+        foreach (CompressionJob job in compressionJobs)
+        {
+            string outputDirectory = CompressionJob.GetOutputDirectory(storageDirectory, job.Id);
             if (Directory.Exists(outputDirectory))
             {
                 Directory.Delete(outputDirectory, recursive: true);

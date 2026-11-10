@@ -18,6 +18,8 @@ public class AppDbContext : DbContext
 
     public DbSet<CutJob> CutJobs => Set<CutJob>();
 
+    public DbSet<CompressionJob> CompressionJobs => Set<CompressionJob>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Video>(entity =>
@@ -167,6 +169,66 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValueSql("now()");
 
+            entity.HasOne(j => j.SourceVideo)
+                .WithMany()
+                .HasForeignKey(j => j.SourceVideoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(j => j.Status);
+        });
+
+        modelBuilder.Entity<CompressionJob>(entity =>
+        {
+            entity.ToTable("compression_jobs", table =>
+            {
+                table.HasCheckConstraint("ck_compression_jobs_crf_range", "crf BETWEEN 0 AND 63");
+                table.HasCheckConstraint(
+                    "ck_compression_jobs_positive_target_size",
+                    "(target_width IS NULL OR target_width > 0) AND (target_height IS NULL OR target_height > 0)");
+                table.HasCheckConstraint(
+                    "ck_compression_jobs_audio_bitrate_range",
+                    "audio_bitrate_kbps IS NULL OR audio_bitrate_kbps BETWEEN 32 AND 512");
+            });
+
+            entity.HasKey(j => j.Id);
+
+            entity.Property(j => j.Format)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(j => j.VideoCodec)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(j => j.Crf)
+                .IsRequired();
+
+            entity.Property(j => j.Preset)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(j => j.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            entity.Property(j => j.OutputFileName)
+                .HasMaxLength(255);
+
+            entity.Property(j => j.OutputStoragePath)
+                .HasMaxLength(1024);
+
+            entity.Property(j => j.ErrorMessage)
+                .HasMaxLength(500);
+
+            entity.Property(j => j.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("now()");
+
+            // Deleting a video removes its compression jobs
             entity.HasOne(j => j.SourceVideo)
                 .WithMany()
                 .HasForeignKey(j => j.SourceVideoId)
