@@ -1,4 +1,5 @@
 using DinoSplicer.Api.Data;
+using DinoSplicer.Api.Exceptions;
 using DinoSplicer.Api.Extensions;
 using DinoSplicer.Api.Models;
 using DinoSplicer.Api.Services;
@@ -132,11 +133,8 @@ public class VideoController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<VideoResponse>> GetById(Guid id, CancellationToken cancellationToken)
     {
-        Video? video = await db.Videos.FindAsync([id], cancellationToken);
-        if (video is null)
-        {
-            return VideoNotFound(id);
-        }
+        Video video = await db.Videos.FindAsync([id], cancellationToken)
+            ?? throw CreateVideoNotFoundException(id);
 
         return VideoResponse.FromVideo(video);
     }
@@ -146,8 +144,7 @@ public class VideoController(
     {
         if (!accessCoordinator.TryAcquireDelete(id))
         {
-            return ApiErrorResult(
-                StatusCodes.Status409Conflict,
+            throw new ResourceConflictException(
                 "The video is currently in use and cannot be deleted. Try again shortly.",
                 ApiErrorCodes.VideoProcessing
             );
@@ -155,17 +152,13 @@ public class VideoController(
 
         try
         {
-            Video? video = await db.Videos.FindAsync([id], cancellationToken);
-            if (video is null)
-            {
-                return VideoNotFound(id);
-            }
+            Video video = await db.Videos.FindAsync([id], cancellationToken)
+                ?? throw CreateVideoNotFoundException(id);
 
             // FFmpeg may have the file open while processing, so deleting now could fail or break the job
             if (video.Status == VideoStatus.Processing)
             {
-                return ApiErrorResult(
-                    StatusCodes.Status409Conflict,
+                throw new ResourceConflictException(
                     "The video cannot be deleted while it is being processed. Try again once processing has finished.",
                     ApiErrorCodes.VideoProcessing
                 );
@@ -178,8 +171,7 @@ public class VideoController(
             // Same reason as above: FFmpeg reads the video while splicing it
             if (spliceJobs.Any(j => j.Status == SpliceJobStatus.Processing))
             {
-                return ApiErrorResult(
-                    StatusCodes.Status409Conflict,
+                throw new ResourceConflictException(
                     "The video cannot be deleted while it is being spliced. Try again once splicing has finished.",
                     ApiErrorCodes.VideoSplicing
                 );
@@ -240,10 +232,9 @@ public class VideoController(
         }
     }
 
-    private ObjectResult VideoNotFound(Guid id)
+    private static ResourceNotFoundException CreateVideoNotFoundException(Guid id)
     {
-        return ApiErrorResult(
-            StatusCodes.Status404NotFound,
+        return new ResourceNotFoundException(
             $"No video with id '{id}' exists.",
             ApiErrorCodes.VideoNotFound
         );

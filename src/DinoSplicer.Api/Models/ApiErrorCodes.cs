@@ -21,6 +21,7 @@ public static class ApiErrorCodes
     public const string UnsupportedContentType = "UNSUPPORTED_CONTENT_TYPE";
     public const string InvalidSpliceValue = "INVALID_SPLICE_VALUE";
     public const string ValidationFailed = "VALIDATION_FAILED";
+    public const string MediaProcessingFailed = "MEDIA_PROCESSING_FAILED";
     public const string DatabaseError = "DATABASE_ERROR";
     public const string NotFound = "NOT_FOUND";
     public const string MethodNotAllowed = "METHOD_NOT_ALLOWED";
