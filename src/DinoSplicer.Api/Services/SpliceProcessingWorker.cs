@@ -1,4 +1,5 @@
 using DinoSplicer.Api.Data;
+using DinoSplicer.Api.Exceptions;
 using DinoSplicer.Api.Models;
 
 using Microsoft.EntityFrameworkCore;
@@ -124,7 +125,7 @@ public class SpliceProcessingWorker(
         {
             logger.LogWarning(ex, "Splicing failed for job {JobId}", jobId);
             job.Status = SpliceJobStatus.Failed;
-            job.ErrorMessage = ex is SpliceException ? ex.Message : "The video could not be spliced.";
+            job.ErrorMessage = ex is MediaProcessingException ? ex.Message : "The video could not be spliced.";
 
             if (Directory.Exists(outputDirectory))
             {

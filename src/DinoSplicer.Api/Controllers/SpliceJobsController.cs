@@ -1,4 +1,5 @@
 using DinoSplicer.Api.Data;
+using DinoSplicer.Api.Exceptions;
 using DinoSplicer.Api.Models;
 using DinoSplicer.Api.Services;
 
@@ -21,11 +22,8 @@ public class SpliceJobsController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<SpliceJobResponse>> GetById(Guid id, CancellationToken cancellationToken)
     {
-        SpliceJob? job = await FindWithOutputsAsync(id, cancellationToken);
-        if (job is null)
-        {
-            return SpliceJobNotFound(id);
-        }
+        SpliceJob job = await FindWithOutputsAsync(id, cancellationToken)
+            ?? throw CreateSpliceJobNotFoundException(id);
 
         return SpliceJobResponse.FromJob(job);
     }
@@ -34,17 +32,13 @@ public class SpliceJobsController(
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         // Outputs are not loaded: the database cascade removes their rows, the folder delete their files
-        SpliceJob? job = await db.SpliceJobs.FindAsync([id], cancellationToken);
-        if (job is null)
-        {
-            return SpliceJobNotFound(id);
-        }
+        SpliceJob job = await db.SpliceJobs.FindAsync([id], cancellationToken)
+            ?? throw CreateSpliceJobNotFoundException(id);
 
         // FFmpeg is still writing the segment files while the job is Processing
         if (job.Status == SpliceJobStatus.Processing)
         {
-            return ApiErrorResult(
-                StatusCodes.Status409Conflict,
+            throw new ResourceConflictException(
                 "The splice job cannot be deleted while it is being processed. Try again once it has finished.",
                 ApiErrorCodes.SpliceJobProcessing
             );
@@ -72,10 +66,9 @@ public class SpliceJobsController(
             .FirstOrDefaultAsync(j => j.Id == id, cancellationToken);
     }
 
-    private ObjectResult SpliceJobNotFound(Guid id)
+    private static ResourceNotFoundException CreateSpliceJobNotFoundException(Guid id)
     {
-        return ApiErrorResult(
-            StatusCodes.Status404NotFound,
+        return new ResourceNotFoundException(
             $"No splice job with id '{id}' exists.",
             ApiErrorCodes.SpliceJobNotFound
         );
