@@ -187,8 +187,7 @@ public class VideoController(
 
         if (compressionJobs.Any(j => j.Status == CompressionJobStatus.Processing))
         {
-            return ApiErrorResult(
-                StatusCodes.Status409Conflict,
+            throw new ResourceConflictException(
                 "The video cannot be deleted while it is being compressed. Try again once compression has finished.",
                 ApiErrorCodes.VideoCompressing
             );
