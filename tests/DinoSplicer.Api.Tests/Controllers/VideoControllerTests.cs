@@ -310,6 +310,44 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
     }
 
     [Fact]
+    public async Task Delete_VideoIsBeingCompressed_Returns409AndKeepsRowAndFiles()
+    {
+        Video video = await SeedVideoAsync(VideoStatus.Ready);
+        CompressionJob job = await SeedCompressionJobAsync(video.Id, CompressionJobStatus.Processing);
+        string outputDirectory = CompressionJob.GetOutputDirectory(factory.StorageDirectory, job.Id);
+        Directory.CreateDirectory(outputDirectory);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        await response.ShouldBeApiErrorAsync(HttpStatusCode.Conflict, ApiErrorCodes.VideoCompressing);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeTrue();
+        (await CompressionJobsExistForVideoAsync(video.Id)).Should().BeTrue();
+        File.Exists(GetFilePath(video)).Should().BeTrue();
+        Directory.Exists(outputDirectory).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Delete_VideoWithCompressionOutputs_Returns204AndRemovesCompressionFoldersAndJobRows()
+    {
+        Video video = await SeedVideoAsync(VideoStatus.Ready);
+        CompressionJob readyJob = await SeedCompressionJobAsync(video.Id, CompressionJobStatus.Ready);
+        CompressionJob failedJobWithoutFolder = await SeedCompressionJobAsync(video.Id, CompressionJobStatus.Failed);
+        string outputDirectory = CompressionJob.GetOutputDirectory(factory.StorageDirectory, readyJob.Id);
+        Directory.CreateDirectory(outputDirectory);
+        await File.WriteAllBytesAsync(Path.Combine(outputDirectory, "holiday_compressed.mp4"), new byte[SeededFileSizeBytes]);
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.DeleteAsync(VideoUrl(video.Id));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await VideoExistsInDbAsync(video.Id)).Should().BeFalse();
+        (await CompressionJobsExistForVideoAsync(video.Id)).Should().BeFalse();
+        Directory.Exists(outputDirectory).Should().BeFalse();
+        Directory.Exists(CompressionJob.GetOutputDirectory(factory.StorageDirectory, failedJobWithoutFolder.Id)).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Upload_ValidVideoFile_BackgroundWorkerExtractsMetadataAndSetsReadyStatus()
     {
         string fixturePath = Path.Combine(AppContext.BaseDirectory, "assets", "sample_320x240.mp4");
@@ -485,5 +523,32 @@ public class VideoControllerTests(VideoApiFactory factory) : IClassFixture<Video
         using IServiceScope scope = factory.Services.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         return await db.CutJobs.AnyAsync(j => j.SourceVideoId == videoId);
+    }
+
+    private async Task<CompressionJob> SeedCompressionJobAsync(Guid videoId, CompressionJobStatus status)
+    {
+        CompressionJob job = new()
+        {
+            SourceVideoId = videoId,
+            Format = OutputContainerFormat.Mp4,
+            VideoCodec = VideoCodecOption.H264,
+            Crf = 23,
+            Preset = EncodingPresetOption.Medium,
+            Status = status,
+        };
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.CompressionJobs.Add(job);
+        await db.SaveChangesAsync();
+
+        return job;
+    }
+
+    private async Task<bool> CompressionJobsExistForVideoAsync(Guid videoId)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.CompressionJobs.AnyAsync(j => j.SourceVideoId == videoId);
     }
 }

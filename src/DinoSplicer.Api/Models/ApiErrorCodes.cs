@@ -7,6 +7,7 @@ public static class ApiErrorCodes
     public const string VideoProcessing = "VIDEO_PROCESSING";
     public const string VideoSplicing = "VIDEO_SPLICING";
     public const string VideoCutting = "VIDEO_CUTTING";
+    public const string VideoCompressing = "VIDEO_COMPRESSING";
     public const string SpliceJobNotFound = "SPLICE_JOB_NOT_FOUND";
     public const string SpliceJobProcessing = "SPLICE_JOB_PROCESSING";
     public const string SpliceJobNotReady = "SPLICE_JOB_NOT_READY";
