@@ -52,6 +52,9 @@ builder.Services.AddSingleton<IVideoSplicer, FFMpegVideoSplicer>();
 builder.Services.AddSingleton<IContentTypeProvider, FileExtensionContentTypeProvider>();
 builder.Services.AddHostedService<SpliceProcessingWorker>();
 
+// Cut requests are validated against the source video before a CutJob is queued
+builder.Services.AddSingleton<ICutRequestValidator, CutRequestValidator>();
+
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
     options.InvalidModelStateResponseFactory = context =>

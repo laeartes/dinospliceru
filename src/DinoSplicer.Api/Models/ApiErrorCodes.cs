@@ -20,6 +20,8 @@ public static class ApiErrorCodes
     public const string UnsupportedFileExtension = "UNSUPPORTED_FILE_EXTENSION";
     public const string UnsupportedContentType = "UNSUPPORTED_CONTENT_TYPE";
     public const string InvalidSpliceValue = "INVALID_SPLICE_VALUE";
+    public const string InvalidCutRange = "INVALID_CUT_RANGE";
+    public const string InvalidCutMode = "INVALID_CUT_MODE";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string MediaProcessingFailed = "MEDIA_PROCESSING_FAILED";
     public const string DatabaseError = "DATABASE_ERROR";
