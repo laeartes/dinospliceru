@@ -8,9 +8,12 @@ namespace DinoSplicer.Api.Services;
 public class VideoProcessingWorker(
     IBackgroundJobQueue<Video> queue,
     IServiceScopeFactory scopeFactory,
-    ILogger<VideoProcessingWorker> logger
+    ILogger<VideoProcessingWorker> logger,
+    IVideoAccessCoordinator accessCoordinator
 ) : BackgroundService
 {
+    private static readonly TimeSpan LeaseRetryDelay = TimeSpan.FromMilliseconds(50);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await RecoverPendingVideosAsync(stoppingToken);
@@ -47,6 +50,15 @@ public class VideoProcessingWorker(
 
     public async Task ProcessAsync(Guid videoId, CancellationToken cancellationToken)
     {
+        using IDisposable? lease = accessCoordinator.TryAcquireProcessingLease(videoId);
+        if (lease is null)
+        {
+            logger.LogInformation("Video {VideoId} is currently being deleted, requeuing metadata extraction", videoId);
+            await Task.Delay(LeaseRetryDelay, cancellationToken);
+            await queue.EnqueueAsync(videoId, cancellationToken);
+            return;
+        }
+
         using IServiceScope scope = scopeFactory.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         IVideoMetadataExtractor extractor = scope.ServiceProvider.GetRequiredService<IVideoMetadataExtractor>();

@@ -16,7 +16,8 @@ public class VideoController(
     AppDbContext db,
     IOptions<VideoUploadOptions> uploadOptions,
     IWebHostEnvironment environment,
-    IBackgroundJobQueue<Video> processingQueue
+    IBackgroundJobQueue<Video> processingQueue,
+    IVideoAccessCoordinator accessCoordinator
 ) : ApiControllerBase
 
 {
@@ -141,101 +142,116 @@ public class VideoController(
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        Video video = await db.Videos.FindAsync([id], cancellationToken)
-            ?? throw CreateVideoNotFoundException(id);
-
-        // FFmpeg may have the file open while processing, so deleting now could fail or break the job
-        if (video.Status == VideoStatus.Processing)
+        if (!accessCoordinator.TryAcquireDelete(id))
         {
             throw new ResourceConflictException(
-                "The video cannot be deleted while it is being processed. Try again once processing has finished.",
+                "The video is currently in use and cannot be deleted. Try again shortly.",
                 ApiErrorCodes.VideoProcessing
             );
         }
 
-        List<SpliceJob> spliceJobs = await db.SpliceJobs
-            .Where(j => j.SourceVideoId == id)
-            .ToListAsync(cancellationToken);
-
-        // Same reason as above: FFmpeg reads the video while splicing it
-        if (spliceJobs.Any(j => j.Status == SpliceJobStatus.Processing))
+        try
         {
-            throw new ResourceConflictException(
-                "The video cannot be deleted while it is being spliced. Try again once splicing has finished.",
-                ApiErrorCodes.VideoSplicing
-            );
-        }
+            Video video = await db.Videos.FindAsync([id], cancellationToken)
+                ?? throw CreateVideoNotFoundException(id);
 
-        List<CutJob> cutJobs = await db.CutJobs
-            .AsNoTracking()
-            .Where(j => j.SourceVideoId == id)
-            .ToListAsync(cancellationToken);
-
-        if (cutJobs.Any(j => j.Status == CutJobStatus.Processing))
-        {
-            return ApiErrorResult(
-                StatusCodes.Status409Conflict,
-                "The video cannot be deleted while it is being cut. Try again once cutting has finished.",
-                ApiErrorCodes.VideoCutting
-            );
-        }
-
-        List<CompressionJob> compressionJobs = await db.CompressionJobs
-            .AsNoTracking()
-            .Where(j => j.SourceVideoId == id)
-            .ToListAsync(cancellationToken);
-
-        if (compressionJobs.Any(j => j.Status == CompressionJobStatus.Processing))
-        {
-            throw new ResourceConflictException(
-                "The video cannot be deleted while it is being compressed. Try again once compression has finished.",
-                ApiErrorCodes.VideoCompressing
-            );
-        }
-
-        // Remove the DB row first: if the file delete then fails we are left with an orphan file,
-        // which is harmless, instead of a row pointing at a file that no longer exists
-        db.Videos.Remove(video);
-        await db.SaveChangesAsync(cancellationToken);
-
-        // Same path as built in Upload, keep the two in sync
-        string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
-        string fullPath = Path.Combine(storageDirectory, video.FileName);
-
-        if (System.IO.File.Exists(fullPath))
-        {
-            System.IO.File.Delete(fullPath);
-        }
-
-        // The database deletes the splice jobs together with the video, their segment files are removed here
-        foreach (SpliceJob job in spliceJobs)
-        {
-            string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(storageDirectory, job.Id);
-            if (Directory.Exists(outputDirectory))
+            // FFmpeg may have the file open while processing, so deleting now could fail or break the job
+            if (video.Status == VideoStatus.Processing)
             {
-                Directory.Delete(outputDirectory, recursive: true);
+                throw new ResourceConflictException(
+                    "The video cannot be deleted while it is being processed. Try again once processing has finished.",
+                    ApiErrorCodes.VideoProcessing
+                );
             }
-        }
 
-        foreach (CutJob job in cutJobs)
-        {
-            string outputDirectory = CutJob.GetOutputDirectory(storageDirectory, job.Id);
-            if (Directory.Exists(outputDirectory))
+            List<SpliceJob> spliceJobs = await db.SpliceJobs
+                .Where(j => j.SourceVideoId == id)
+                .ToListAsync(cancellationToken);
+
+            // Same reason as above: FFmpeg reads the video while splicing it
+            if (spliceJobs.Any(j => j.Status == SpliceJobStatus.Processing))
             {
-                Directory.Delete(outputDirectory, recursive: true);
+                throw new ResourceConflictException(
+                    "The video cannot be deleted while it is being spliced. Try again once splicing has finished.",
+                    ApiErrorCodes.VideoSplicing
+                );
             }
-        }
 
-        foreach (CompressionJob job in compressionJobs)
-        {
-            string outputDirectory = CompressionJob.GetOutputDirectory(storageDirectory, job.Id);
-            if (Directory.Exists(outputDirectory))
+            List<CutJob> cutJobs = await db.CutJobs
+                .AsNoTracking()
+                .Where(j => j.SourceVideoId == id)
+                .ToListAsync(cancellationToken);
+
+            if (cutJobs.Any(j => j.Status == CutJobStatus.Processing))
             {
-                Directory.Delete(outputDirectory, recursive: true);
+                return ApiErrorResult(
+                    StatusCodes.Status409Conflict,
+                    "The video cannot be deleted while it is being cut. Try again once cutting has finished.",
+                    ApiErrorCodes.VideoCutting
+                );
             }
-        }
 
-        return NoContent();
+            List<CompressionJob> compressionJobs = await db.CompressionJobs
+                .AsNoTracking()
+                .Where(j => j.SourceVideoId == id)
+                .ToListAsync(cancellationToken);
+
+            if (compressionJobs.Any(j => j.Status == CompressionJobStatus.Processing))
+            {
+                throw new ResourceConflictException(
+                    "The video cannot be deleted while it is being compressed. Try again once compression has finished.",
+                    ApiErrorCodes.VideoCompressing
+                );
+            }
+
+            // Remove the DB row first: if the file delete then fails we are left with an orphan file,
+            // which is harmless, instead of a row pointing at a file that no longer exists
+            db.Videos.Remove(video);
+            await db.SaveChangesAsync(cancellationToken);
+
+            // Same path as built in Upload, keep the two in sync
+            string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
+            string fullPath = Path.Combine(storageDirectory, video.FileName);
+
+            if (System.IO.File.Exists(fullPath))
+            {
+                System.IO.File.Delete(fullPath);
+            }
+
+            // The database deletes the splice jobs together with the video, their segment files are removed here
+            foreach (SpliceJob job in spliceJobs)
+            {
+                string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(storageDirectory, job.Id);
+                if (Directory.Exists(outputDirectory))
+                {
+                    Directory.Delete(outputDirectory, recursive: true);
+                }
+            }
+
+            foreach (CutJob job in cutJobs)
+            {
+                string outputDirectory = CutJob.GetOutputDirectory(storageDirectory, job.Id);
+                if (Directory.Exists(outputDirectory))
+                {
+                    Directory.Delete(outputDirectory, recursive: true);
+                }
+            }
+
+            foreach (CompressionJob job in compressionJobs)
+            {
+                string outputDirectory = CompressionJob.GetOutputDirectory(storageDirectory, job.Id);
+                if (Directory.Exists(outputDirectory))
+                {
+                    Directory.Delete(outputDirectory, recursive: true);
+                }
+            }
+
+            return NoContent();
+        }
+        finally
+        {
+            accessCoordinator.CompleteDelete(id);
+        }
     }
 
     private static ResourceNotFoundException CreateVideoNotFoundException(Guid id)
