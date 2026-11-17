@@ -12,6 +12,8 @@ public class VideoProcessingWorker(
     IVideoAccessCoordinator accessCoordinator
 ) : BackgroundService
 {
+    private static readonly TimeSpan LeaseRetryDelay = TimeSpan.FromMilliseconds(50);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await RecoverPendingVideosAsync(stoppingToken);
@@ -51,7 +53,9 @@ public class VideoProcessingWorker(
         using IDisposable? lease = accessCoordinator.TryAcquireProcessingLease(videoId);
         if (lease is null)
         {
-            logger.LogInformation("Video {VideoId} is currently being deleted, skipping metadata extraction", videoId);
+            logger.LogInformation("Video {VideoId} is currently being deleted, requeuing metadata extraction", videoId);
+            await Task.Delay(LeaseRetryDelay, cancellationToken);
+            await queue.EnqueueAsync(videoId, cancellationToken);
             return;
         }
 

@@ -244,6 +244,38 @@ public class VideoProcessingWorkerTests(VideoApiFactory factory) : IClassFixture
         coordinator.CompleteDelete(video.Id);
     }
 
+    [Fact]
+    public async Task ProcessAsync_WhenDeleteLockIsHeld_RequeuesVideoAndProcessesOnceDeleteCompletes()
+    {
+        TaskCompletionSource extractorStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseExtractor = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        releaseExtractor.SetResult();
+
+        Video video = await SeedVideoAsync(VideoStatus.Uploaded);
+        BackgroundJobQueue<Video> queue = new();
+        VideoAccessCoordinator coordinator = new();
+        VideoProcessingWorker worker = CreateWorker(
+            queue,
+            new GatedExtractor(extractorStarted, releaseExtractor),
+            coordinator
+        );
+
+        coordinator.TryAcquireDelete(video.Id).Should().BeTrue();
+
+        await worker.ProcessAsync(video.Id, CancellationToken.None);
+
+        (await GetStatusAsync(video.Id)).Should().Be(VideoStatus.Uploaded);
+        List<Guid> requeued = await DequeueAsync(queue, 1);
+        requeued.Should().ContainSingle().Which.Should().Be(video.Id);
+
+        // Simulate the delete failing and releasing the lock without removing the row
+        coordinator.CompleteDelete(video.Id);
+
+        await worker.ProcessAsync(requeued[0], CancellationToken.None);
+
+        (await GetStatusAsync(video.Id)).Should().Be(VideoStatus.Ready);
+    }
+
     private sealed class GatedExtractor(TaskCompletionSource started, TaskCompletionSource gate) : IVideoMetadataExtractor
     {
         public async Task<VideoMetadata> ExtractMetadata(
