@@ -23,6 +23,105 @@ namespace DinoSplicer.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DinoSplicer.Api.Models.CompressionJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int?>("AudioBitrateKbps")
+                        .HasColumnType("integer")
+                        .HasColumnName("audio_bitrate_kbps");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("Crf")
+                        .HasColumnType("integer")
+                        .HasColumnName("crf");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("format");
+
+                    b.Property<double?>("OutputDurationSeconds")
+                        .HasColumnType("double precision")
+                        .HasColumnName("output_duration_seconds");
+
+                    b.Property<string>("OutputFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("output_file_name");
+
+                    b.Property<long?>("OutputSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("output_size_bytes");
+
+                    b.Property<string>("OutputStoragePath")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("output_storage_path");
+
+                    b.Property<string>("Preset")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("preset");
+
+                    b.Property<Guid>("SourceVideoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_video_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<int?>("TargetHeight")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_height");
+
+                    b.Property<int?>("TargetWidth")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_width");
+
+                    b.Property<string>("VideoCodec")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("video_codec");
+
+                    b.HasKey("Id")
+                        .HasName("pk_compression_jobs");
+
+                    b.HasIndex("SourceVideoId")
+                        .HasDatabaseName("ix_compression_jobs_source_video_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_compression_jobs_status");
+
+                    b.ToTable("compression_jobs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_compression_jobs_audio_bitrate_range", "audio_bitrate_kbps IS NULL OR audio_bitrate_kbps BETWEEN 32 AND 512");
+
+                            t.HasCheckConstraint("ck_compression_jobs_crf_range", "crf BETWEEN 0 AND 63");
+
+                            t.HasCheckConstraint("ck_compression_jobs_positive_target_size", "(target_width IS NULL OR target_width > 0) AND (target_height IS NULL OR target_height > 0)");
+                        });
+                });
+
             modelBuilder.Entity("DinoSplicer.Api.Models.CutJob", b =>
                 {
                     b.Property<Guid>("Id")
@@ -261,6 +360,18 @@ namespace DinoSplicer.Api.Migrations
                         .HasDatabaseName("ix_videos_status");
 
                     b.ToTable("videos", (string)null);
+                });
+
+            modelBuilder.Entity("DinoSplicer.Api.Models.CompressionJob", b =>
+                {
+                    b.HasOne("DinoSplicer.Api.Models.Video", "SourceVideo")
+                        .WithMany()
+                        .HasForeignKey("SourceVideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_compression_jobs_videos_source_video_id");
+
+                    b.Navigation("SourceVideo");
                 });
 
             modelBuilder.Entity("DinoSplicer.Api.Models.CutJob", b =>
