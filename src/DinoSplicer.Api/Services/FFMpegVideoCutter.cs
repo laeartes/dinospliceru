@@ -58,7 +58,7 @@ public class FFMpegVideoCutter(
         double targetDurationSeconds = endSeconds - startSeconds;
 
         Lock progressLock = new();
-        int maxReportedProgress = 0;
+        int maxReportedProgress = -1;
 
         void ReportMonotonicProgress(int candidate)
         {
@@ -66,7 +66,7 @@ public class FFMpegVideoCutter(
             int toReport;
             lock (progressLock)
             {
-                if (clamped < maxReportedProgress)
+                if (clamped <= maxReportedProgress)
                 {
                     return;
                 }
