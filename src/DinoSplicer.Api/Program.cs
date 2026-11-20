@@ -57,6 +57,9 @@ builder.Services.AddHostedService<SpliceProcessingWorker>();
 // Cut requests are validated against the source video before a CutJob is queued
 builder.Services.AddSingleton<ICutRequestValidator, CutRequestValidator>();
 
+// Compression requests are validated against codec/container rules and source dimensions before a CompressionJob is queued
+builder.Services.AddSingleton<ICompressionRequestValidator, CompressionRequestValidator>();
+
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
     options.InvalidModelStateResponseFactory = context =>

@@ -23,6 +23,13 @@ public static class ApiErrorCodes
     public const string InvalidSpliceValue = "INVALID_SPLICE_VALUE";
     public const string InvalidCutRange = "INVALID_CUT_RANGE";
     public const string InvalidCutMode = "INVALID_CUT_MODE";
+    public const string InvalidCompressionFormat = "INVALID_COMPRESSION_FORMAT";
+    public const string InvalidCompressionCodec = "INVALID_COMPRESSION_CODEC";
+    public const string InvalidCompressionPreset = "INVALID_COMPRESSION_PRESET";
+    public const string IncompatibleContainerCodec = "INCOMPATIBLE_CONTAINER_CODEC";
+    public const string InvalidCompressionCrf = "INVALID_COMPRESSION_CRF";
+    public const string InvalidCompressionResolution = "INVALID_COMPRESSION_RESOLUTION";
+    public const string InvalidCompressionAudioBitrate = "INVALID_COMPRESSION_AUDIO_BITRATE";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string MediaProcessingFailed = "MEDIA_PROCESSING_FAILED";
     public const string DatabaseError = "DATABASE_ERROR";
