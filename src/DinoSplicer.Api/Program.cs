@@ -56,9 +56,6 @@ builder.Services.AddHostedService<SpliceProcessingWorker>();
 
 // Cut requests are validated against the source video before a CutJob is queued
 builder.Services.AddSingleton<ICutRequestValidator, CutRequestValidator>();
-
-// Cut requests are validated against the source video before a CutJob is queued
-builder.Services.AddSingleton<ICutRequestValidator, CutRequestValidator>();
 builder.Services.AddSingleton<IFileSystem, SystemFileSystem>();
 builder.Services.AddSingleton<IFFMpegRunner, FFMpegRunner>();
 builder.Services.AddSingleton<IVideoCutter, FFMpegVideoCutter>();
