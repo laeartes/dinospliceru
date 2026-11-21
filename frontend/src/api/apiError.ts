@@ -9,6 +9,7 @@ const ClientErrorCodes = {
     UnexpectedResponse: 'UNEXPECTED_RESPONSE',
     VideoProcessingFailed: 'VIDEO_PROCESSING_FAILED',
     SpliceJobFailed: 'SPLICE_JOB_FAILED',
+    CutJobFailed: 'CUT_JOB_FAILED',
     UnknownError: 'UNKNOWN_ERROR',
 } as const
 
