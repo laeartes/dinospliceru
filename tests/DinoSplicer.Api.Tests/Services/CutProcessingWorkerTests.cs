@@ -34,20 +34,94 @@ public class CutProcessingWorkerTests(VideoApiFactory factory) : IClassFixture<V
     [Fact]
     public async Task ProcessAsync_PendingJob_PassesJobParametersAndPathsToCutter()
     {
-        CutJob job = await SeedJobWithoutFileAsync();
+        CutJob job = await SeedJobWithoutFileAsync(mode: CutMode.FrameAccurate, startSeconds: 1.5, endSeconds: 2.5);
         string? receivedSourcePath = null;
         string? receivedOutputDirectory = null;
         StubVideoCutter cutter = new((_, sourcePath, outputDirectory, _) =>
         {
             receivedSourcePath = sourcePath;
             receivedOutputDirectory = outputDirectory;
-            return Task.FromResult(new CutResult(Path.Combine(outputDirectory, "clip.mp4"), 3.0, 2048));
+            return Task.FromResult(new CutResult(Path.Combine(outputDirectory, "clip.mp4"), 1.0, 2048));
         });
 
         await CreateWorker(cutter: cutter).ProcessAsync(job.Id, CancellationToken.None);
 
+        cutter.ReceivedJobId.Should().Be(job.Id);
+        cutter.ReceivedStartSeconds.Should().Be(1.5);
+        cutter.ReceivedEndSeconds.Should().Be(2.5);
+        cutter.ReceivedMode.Should().Be(CutMode.FrameAccurate);
         receivedSourcePath.Should().Be(Path.Combine(factory.StorageDirectory, $"{job.SourceVideoId}.mp4"));
         receivedOutputDirectory.Should().Be(CutJob.GetOutputDirectory(factory.StorageDirectory, job.Id));
+    }
+
+    [Theory]
+    [InlineData("holiday.mp4", ".mp4", "holiday_cut.mp4")]
+    [InlineData("my.trip.webm", ".webm", "my.trip_cut.webm")]
+    public void BuildOutputFileName_NormalName_AppendsCutSuffix(string originalFileName, string extension, string expected)
+    {
+        CutProcessingWorker.BuildOutputFileName(originalFileName, extension).Should().Be(expected);
+    }
+
+    [Fact]
+    public void BuildOutputFileName_MaxLengthName_ShortensBaseToFit255Characters()
+    {
+        string originalFileName = new string('a', 251) + ".mp4";
+
+        string outputFileName = CutProcessingWorker.BuildOutputFileName(originalFileName, ".mp4");
+
+        outputFileName.Length.Should().Be(255);
+        outputFileName.Should().EndWith("_cut.mp4");
+    }
+
+    [Fact]
+    public async Task ProcessAsync_MaxLengthOriginalFileName_SavesReadyJobWithShortenedOutputName()
+    {
+        CutJob job = await SeedJobWithoutFileAsync(originalFileName: new string('a', 251) + ".mp4");
+        StubVideoCutter cutter = new((_, _, outputDirectory, _) =>
+            Task.FromResult(new CutResult(Path.Combine(outputDirectory, "clip.mp4"), 3.0, 2048)));
+
+        await CreateWorker(cutter: cutter).ProcessAsync(job.Id, CancellationToken.None);
+
+        CutJob processed = await LoadJobAsync(job.Id);
+        processed.Status.Should().Be(CutJobStatus.Ready);
+        processed.OutputFileName.Should().HaveLength(255).And.EndWith("_cut.mp4");
+    }
+
+    [Fact]
+    public async Task ProcessAsync_CancelledMidCut_KeepsJobProcessingAndClearsProgress()
+    {
+        CutJob job = await SeedJobWithoutFileAsync();
+        JobProgressTracker tracker = new();
+        using CancellationTokenSource cts = new();
+        StubVideoCutter cutter = new((jobId, _, _, ct) =>
+        {
+            tracker.ReportProgress(jobId, 30);
+            cts.Cancel();
+            ct.ThrowIfCancellationRequested();
+            throw new InvalidOperationException("Cancellation should have stopped the cut");
+        });
+
+        Func<Task> act = () => CreateWorker(cutter: cutter, progressTracker: tracker).ProcessAsync(job.Id, cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        (await LoadJobAsync(job.Id)).Status.Should().Be(CutJobStatus.Processing);
+        tracker.GetProgress(job.Id).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProcessAsync_InterruptedJobWithLeftoverOutput_ReplacesItAndSetsReady()
+    {
+        CutJob job = await SeedJobWithSampleVideoAsync(CutJobStatus.Processing);
+        Directory.CreateDirectory(OutputDirectory(job.Id));
+        string leftoverClip = Path.Combine(OutputDirectory(job.Id), "clip.mp4");
+        await File.WriteAllTextAsync(leftoverClip, "partial");
+
+        await CreateWorker().ProcessAsync(job.Id, CancellationToken.None);
+
+        CutJob processed = await LoadJobAsync(job.Id);
+        processed.Status.Should().Be(CutJobStatus.Ready);
+        processed.OutputDurationSeconds.Should().BeGreaterThan(0);
+        new FileInfo(leftoverClip).Length.Should().BeGreaterThan("partial".Length);
     }
 
     [Fact]
@@ -277,11 +351,17 @@ public class CutProcessingWorkerTests(VideoApiFactory factory) : IClassFixture<V
         return CutJob.GetOutputDirectory(factory.StorageDirectory, jobId);
     }
 
-    private async Task<CutJob> SeedJobWithoutFileAsync(CutJobStatus status = CutJobStatus.Pending)
+    private async Task<CutJob> SeedJobWithoutFileAsync(
+        CutJobStatus status = CutJobStatus.Pending,
+        string originalFileName = "holiday.mp4",
+        CutMode mode = CutMode.FastCopy,
+        double startSeconds = 1.0,
+        double endSeconds = 4.0
+    )
     {
         Video video = new()
         {
-            OriginalFileName = "holiday.mp4",
+            OriginalFileName = originalFileName,
             ContentType = "video/mp4",
             SizeBytes = 4096,
             DurationSeconds = 10,
@@ -289,10 +369,10 @@ public class CutProcessingWorkerTests(VideoApiFactory factory) : IClassFixture<V
         };
         video.FileName = $"{video.Id}.mp4";
 
-        return await SaveJobAsync(video, status);
+        return await SaveJobAsync(video, status, mode, startSeconds, endSeconds);
     }
 
-    private async Task<CutJob> SeedJobWithSampleVideoAsync()
+    private async Task<CutJob> SeedJobWithSampleVideoAsync(CutJobStatus status = CutJobStatus.Pending)
     {
         Video video = new()
         {
@@ -308,17 +388,23 @@ public class CutProcessingWorkerTests(VideoApiFactory factory) : IClassFixture<V
         File.Copy(await SampleVideo.GetPathAsync(), sourcePath);
         video.SizeBytes = new FileInfo(sourcePath).Length;
 
-        return await SaveJobAsync(video, CutJobStatus.Pending);
+        return await SaveJobAsync(video, status);
     }
 
-    private async Task<CutJob> SaveJobAsync(Video video, CutJobStatus status)
+    private async Task<CutJob> SaveJobAsync(
+        Video video,
+        CutJobStatus status,
+        CutMode mode = CutMode.FastCopy,
+        double startSeconds = 1.0,
+        double endSeconds = 4.0
+    )
     {
         CutJob job = new()
         {
             SourceVideo = video,
-            StartSeconds = 1.0,
-            EndSeconds = 4.0,
-            Mode = CutMode.FastCopy,
+            StartSeconds = startSeconds,
+            EndSeconds = endSeconds,
+            Mode = mode,
             Status = status,
         };
 
@@ -339,6 +425,11 @@ public class CutProcessingWorkerTests(VideoApiFactory factory) : IClassFixture<V
 
     private sealed class StubVideoCutter(Func<Guid, string, string, CancellationToken, Task<CutResult>> cut) : IVideoCutter
     {
+        public Guid? ReceivedJobId { get; private set; }
+        public double? ReceivedStartSeconds { get; private set; }
+        public double? ReceivedEndSeconds { get; private set; }
+        public CutMode? ReceivedMode { get; private set; }
+
         public Task<CutResult> CutAsync(
             Guid jobId,
             string sourcePath,
@@ -347,7 +438,14 @@ public class CutProcessingWorkerTests(VideoApiFactory factory) : IClassFixture<V
             double endSeconds,
             CutMode mode,
             CancellationToken cancellationToken = default
-        ) => cut(jobId, sourcePath, outputDirectory, cancellationToken);
+        )
+        {
+            ReceivedJobId = jobId;
+            ReceivedStartSeconds = startSeconds;
+            ReceivedEndSeconds = endSeconds;
+            ReceivedMode = mode;
+            return cut(jobId, sourcePath, outputDirectory, cancellationToken);
+        }
     }
 
     // Hands out the real services except IVideoCutter, which is replaced by the given stub
