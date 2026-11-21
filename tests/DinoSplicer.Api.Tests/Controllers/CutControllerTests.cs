@@ -53,11 +53,9 @@ public class CutControllerTests(VideoApiFactory factory) : IClassFixture<VideoAp
         job.StartSeconds.Should().Be(startSeconds);
         job.EndSeconds.Should().Be(endSeconds);
 
-        // Nothing consumes IBackgroundJobQueue<CutJob> yet, so the job is still Pending.
-        // Once a cut worker exists, relax this like SpliceControllerTests does.
-        job.Status.Should().Be(CutJobStatus.Pending);
-
-        (await WasEnqueuedAsync(body.JobId)).Should().BeTrue("the controller must enqueue the job id after saving it");
+        // The cut worker consumes the queue, so the job leaving Pending proves the controller enqueued it
+        CutJobStatus statusAfterWorker = await WaitForJobToLeavePendingAsync(body.JobId);
+        statusAfterWorker.Should().NotBe(CutJobStatus.Pending, "the controller must enqueue the job id after saving it");
     }
 
     [Theory]
@@ -216,28 +214,25 @@ public class CutControllerTests(VideoApiFactory factory) : IClassFixture<VideoAp
         return await db.CutJobs.CountAsync(j => j.SourceVideoId == videoId);
     }
 
-    // The queue is a singleton shared by every test in this class, so ids from earlier tests are
-    // still in the channel; read past them until this job's id turns up or the timeout expires.
-    private async Task<bool> WasEnqueuedAsync(Guid jobId)
+    // The seeded video has no file, so the worker picks the job up and fails it quickly
+    private async Task<CutJobStatus> WaitForJobToLeavePendingAsync(Guid jobId)
     {
-        IBackgroundJobQueue<CutJob> queue = factory.Services.GetRequiredService<IBackgroundJobQueue<CutJob>>();
-        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
-
-        try
+        DateTime deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
         {
-            await foreach (Guid id in queue.DequeueAllAsync(timeout.Token))
+            using IServiceScope scope = factory.Services.CreateScope();
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            CutJobStatus status = await db.CutJobs
+                .Where(j => j.Id == jobId)
+                .Select(j => j.Status)
+                .SingleAsync();
+
+            if (status != CutJobStatus.Pending || DateTime.UtcNow >= deadline)
             {
-                if (id == jobId)
-                {
-                    return true;
-                }
+                return status;
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // Timed out without seeing the id
-        }
 
-        return false;
+            await Task.Delay(100);
+        }
     }
 }
