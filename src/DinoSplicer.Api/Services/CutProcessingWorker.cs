@@ -17,6 +17,8 @@ public class CutProcessingWorker(
 {
     public const string GenericFailureMessage = "The video could not be cut.";
     public const string SourceBeingDeletedMessage = "The source video is being deleted.";
+    private const int MaxOutputFileNameLength = 255;
+    private const string OutputFileNameSuffix = "_cut";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -116,7 +118,7 @@ public class CutProcessingWorker(
 
             // The cutter returns an absolute path, the database keeps it relative to the storage folder
             string outputFile = Path.GetFileName(result.FilePath);
-            job.OutputFileName = $"{Path.GetFileNameWithoutExtension(video.OriginalFileName)}_cut{Path.GetExtension(outputFile)}";
+            job.OutputFileName = BuildOutputFileName(video.OriginalFileName, Path.GetExtension(outputFile));
             job.OutputStoragePath = Path.Combine(CutJob.OutputDirectoryName, job.Id.ToString(), outputFile);
             job.OutputDurationSeconds = result.DurationSeconds;
             job.OutputSizeBytes = result.SizeBytes;
@@ -140,6 +142,18 @@ public class CutProcessingWorker(
 
         progressTracker.Remove(job.Id);
         await db.SaveChangesAsync(CancellationToken.None);
+    }
+
+    public static string BuildOutputFileName(string originalFileName, string outputExtension)
+    {
+        string baseName = Path.GetFileNameWithoutExtension(originalFileName);
+        int maxBaseLength = MaxOutputFileNameLength - OutputFileNameSuffix.Length - outputExtension.Length;
+        if (baseName.Length > maxBaseLength)
+        {
+            baseName = baseName[..maxBaseLength];
+        }
+
+        return $"{baseName}{OutputFileNameSuffix}{outputExtension}";
     }
 
     private async Task MarkFailedAsync(CutJob job, string errorMessage, string outputDirectory, IFileSystem fileSystem)
