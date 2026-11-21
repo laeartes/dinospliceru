@@ -13,6 +13,10 @@ public static class ApiErrorCodes
     public const string SpliceJobNotReady = "SPLICE_JOB_NOT_READY";
     public const string SpliceOutputNotFound = "SPLICE_OUTPUT_NOT_FOUND";
     public const string SpliceOutputFileMissing = "SPLICE_OUTPUT_FILE_MISSING";
+    public const string CutJobNotFound = "CUT_JOB_NOT_FOUND";
+    public const string CutJobProcessing = "CUT_JOB_PROCESSING";
+    public const string CutJobNotReady = "CUT_JOB_NOT_READY";
+    public const string CutOutputFileMissing = "CUT_OUTPUT_FILE_MISSING";
     public const string InvalidUpload = "INVALID_UPLOAD";
     public const string InvalidFileCount = "INVALID_FILE_COUNT";
     public const string FileEmpty = "FILE_EMPTY";
