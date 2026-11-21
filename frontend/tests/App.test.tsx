@@ -221,4 +221,61 @@ describe('App', () => {
     const overviewSplicerBtn = screen.getByTestId('open-splicer-btn')
     expect(overviewSplicerBtn).toHaveTextContent('Splicer (processing...) ( •̀_•́ ) ✦')
   })
+
+  it('opens CutPanel from Ready overview and returns cleanly via Back button', async () => {
+    class MockXHR {
+      upload = { onprogress: null }
+      status = 201
+      responseText = JSON.stringify({
+        id: 'app-cut-vid',
+        fileName: 'test.mkv',
+        sizeBytes: 1024,
+        status: 'Uploaded',
+      })
+      onload: (() => void) | null = null
+      open() {}
+      send() {
+        setTimeout(() => this.onload?.(), 0)
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', MockXHR)
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okResponse())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'app-cut-vid',
+            fileName: 'test.mkv',
+            contentType: 'video/x-matroska',
+            sizeBytes: 1024,
+            durationSeconds: 30.0,
+            resolution: { width: 1280, height: 720 },
+            codec: 'h264',
+            status: 'Ready',
+            createdAt: '2026-11-21T19:00:00Z',
+          }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [new File(['x'], 'test.mkv', { type: 'video/x-matroska' })] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    const cutterBtn = await screen.findByTestId('open-cutter-btn')
+    fireEvent.click(cutterBtn)
+
+    expect(screen.getByTestId('cut-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('cut-start-input')).toHaveValue('00:00.0')
+    expect(screen.getByTestId('cut-end-input')).toHaveValue('00:30.0')
+
+    fireEvent.click(screen.getByTestId('cut-back-btn'))
+    expect(screen.getByTestId('open-cutter-btn')).toBeInTheDocument()
+  })
 })

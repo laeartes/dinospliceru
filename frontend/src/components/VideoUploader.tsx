@@ -48,6 +48,8 @@ interface VideoUploaderProps {
   onVideoReady?: (video: VideoResponse | null) => void
   onOpenSplicer?: () => void
   isSplicing?: boolean
+  onOpenCutter?: () => void
+  isCutting?: boolean
 }
 
 function VideoUploader({
@@ -56,6 +58,8 @@ function VideoUploader({
   onVideoReady,
   onOpenSplicer,
   isSplicing = false,
+  onOpenCutter,
+  isCutting = false,
 }: VideoUploaderProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -365,6 +369,21 @@ function VideoUploader({
                 title="Editor feature coming soon ( •̀_•́ )"
               >
                 Editor (coming soon)
+              </button>
+              <button
+                type="button"
+                onClick={onOpenCutter}
+                className="inline-flex items-center gap-2 bg-cyber-pink px-5 py-2 font-medium text-white hover:bg-cyber-pink-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink focus-visible:ring-offset-2 transition-colors cursor-pointer"
+                data-testid="open-cutter-btn"
+              >
+                {isCutting ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" aria-hidden="true" />
+                    <span>Cut (processing...) ( •̀_•́ ) ✦</span>
+                  </>
+                ) : (
+                  <span>Cut (｡•̀ᴗ-)✧ ✦</span>
+                )}
               </button>
               <button
                 type="button"

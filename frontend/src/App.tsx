@@ -3,20 +3,24 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import VideoUploader from './components/VideoUploader'
 import SplicePanel from './components/SplicePanel'
+import CutPanel from './components/CutPanel'
 import { useUploadConfig } from './hooks/useUploadConfig'
 import type { VideoResponse } from './api/videoApi'
 
 function App() {
   const uploadConfig = useUploadConfig()
   const [readyVideo, setReadyVideo] = useState<VideoResponse | null>(null)
-  const [currentView, setCurrentView] = useState<'overview' | 'splicer'>('overview')
+  const [selectedLocalFile, setSelectedLocalFile] = useState<File | null>(null)
+  const [currentView, setCurrentView] = useState<'overview' | 'splicer' | 'cutter'>('overview')
   const [isSplicing, setIsSplicing] = useState(false)
+  const [isCutting, setIsCutting] = useState(false)
 
   const handleVideoReady = (video: VideoResponse | null) => {
     setReadyVideo(video)
     if (!video) {
       setCurrentView('overview')
       setIsSplicing(false)
+      setIsCutting(false)
     }
   }
 
@@ -29,19 +33,32 @@ function App() {
             <div className={currentView === 'overview' ? 'block' : 'hidden'}>
               <VideoUploader
                 config={uploadConfig.config}
+                onFileSelect={setSelectedLocalFile}
                 onVideoReady={handleVideoReady}
                 onOpenSplicer={() => setCurrentView('splicer')}
                 isSplicing={isSplicing}
+                onOpenCutter={() => setCurrentView('cutter')}
+                isCutting={isCutting}
               />
             </div>
             {readyVideo && (
-              <div className={currentView === 'splicer' ? 'block' : 'hidden'}>
-                <SplicePanel
-                  video={readyVideo}
-                  onBack={() => setCurrentView('overview')}
-                  onSplicingChange={setIsSplicing}
-                />
-              </div>
+              <>
+                <div className={currentView === 'splicer' ? 'block' : 'hidden'}>
+                  <SplicePanel
+                    video={readyVideo}
+                    onBack={() => setCurrentView('overview')}
+                    onSplicingChange={setIsSplicing}
+                  />
+                </div>
+                <div className={currentView === 'cutter' ? 'block' : 'hidden'}>
+                  <CutPanel
+                    video={readyVideo}
+                    localFile={selectedLocalFile}
+                    onBack={() => setCurrentView('overview')}
+                    onCuttingChange={setIsCutting}
+                  />
+                </div>
+              </>
             )}
           </>
         )}
