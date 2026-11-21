@@ -18,6 +18,7 @@ public class CutJobsController(
     AppDbContext db,
     IJobProgressTracker progressTracker,
     IContentTypeProvider contentTypeProvider,
+    IFileSystem fileSystem,
     IOptions<VideoUploadOptions> uploadOptions,
     IWebHostEnvironment environment
 ) : ApiControllerBase
@@ -99,10 +100,7 @@ public class CutJobsController(
 
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
         string outputDirectory = CutJob.GetOutputDirectory(storageDirectory, job.Id);
-        if (Directory.Exists(outputDirectory))
-        {
-            Directory.Delete(outputDirectory, recursive: true);
-        }
+        await fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, CancellationToken.None);
 
         return NoContent();
     }
