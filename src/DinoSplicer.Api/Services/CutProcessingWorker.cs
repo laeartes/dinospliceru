@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace DinoSplicer.Api.Services;
 
-public class CutProcessingWorker (
+public class CutProcessingWorker(
     IBackgroundJobQueue<CutJob> queue,
     IVideoAccessCoordinator accessCoordinator,
     IJobProgressTracker progressTracker,
@@ -94,7 +94,7 @@ public class CutProcessingWorker (
             logger.LogWarning("Source video {VideoId} for cut job {JobId} was deleted before cutting started, skipping", video.Id, jobId);
             return;
         }
-        
+
         job.Status = CutJobStatus.Processing;
         await db.SaveChangesAsync(cancellationToken);
 
