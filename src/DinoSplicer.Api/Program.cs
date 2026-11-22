@@ -63,6 +63,7 @@ builder.Services.AddHostedService<CutProcessingWorker>();
 
 // Compression requests are validated against codec/container rules and source dimensions before a CompressionJob is queued
 builder.Services.AddSingleton<ICompressionRequestValidator, CompressionRequestValidator>();
+builder.Services.AddSingleton<IVideoCompressor, FFMpegVideoCompressor>();
 
 builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 {
