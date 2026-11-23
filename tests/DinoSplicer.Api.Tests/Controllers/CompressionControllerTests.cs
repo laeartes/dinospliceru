@@ -8,6 +8,8 @@ using DinoSplicer.Api.Services;
 
 using FluentAssertions;
 
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,7 +24,18 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
     public async Task CreateCompression_ReadyVideoWithAllParameters_Returns202CreatesPendingJobAndEnqueuesIt()
     {
         Video video = await SeedVideoAsync(VideoStatus.Ready);
-        HttpClient client = factory.CreateClient();
+
+        // Without the worker nothing drains the queue, so the test can check that the controller enqueued the id
+        await using WebApplicationFactory<Program> workerlessFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                ServiceDescriptor? worker = services.SingleOrDefault(d => d.ImplementationType == typeof(CompressionProcessingWorker));
+                if (worker is not null)
+                {
+                    services.Remove(worker);
+                }
+            }));
+        using HttpClient client = workerlessFactory.CreateClient();
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             CompressUrl(video.Id),
@@ -62,7 +75,7 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
         job.Preset.Should().Be(EncodingPresetOption.Slow);
 
         job.Status.Should().Be(CompressionJobStatus.Pending);
-        (await WasEnqueuedAsync(body.JobId)).Should().BeTrue("the controller must enqueue the job id after saving it");
+        (await WasEnqueuedAsync(workerlessFactory.Services, body.JobId)).Should().BeTrue("the controller must enqueue the job id after saving it");
     }
 
     [Theory]
@@ -208,9 +221,9 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
         return await db.CompressionJobs.CountAsync(j => j.SourceVideoId == videoId);
     }
 
-    private async Task<bool> WasEnqueuedAsync(Guid jobId)
+    private static async Task<bool> WasEnqueuedAsync(IServiceProvider services, Guid jobId)
     {
-        IBackgroundJobQueue<CompressionJob> queue = factory.Services.GetRequiredService<IBackgroundJobQueue<CompressionJob>>();
+        IBackgroundJobQueue<CompressionJob> queue = services.GetRequiredService<IBackgroundJobQueue<CompressionJob>>();
         using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
 
         try
