@@ -117,9 +117,13 @@ describe('useCutJob', () => {
     expect(result.current.cutState.status).toBe('error')
   })
 
-  it('resets state to idle when reset() is called', async () => {
+  it('resets state to idle and aborts in-flight poll requests when reset() is called', async () => {
     vi.spyOn(cutApi, 'startCut').mockResolvedValue(baseJob)
-    vi.spyOn(cutApi, 'getCutJob').mockResolvedValue({ ...baseJob, status: 'Processing', progressPercent: 25 })
+    let capturedSignal: AbortSignal | undefined
+    vi.spyOn(cutApi, 'getCutJob').mockImplementation((_jobId, signal) => {
+      capturedSignal = signal
+      return Promise.resolve({ ...baseJob, status: 'Processing', progressPercent: 25 })
+    })
 
     const { result } = renderHook(() => useCutJob('vid-1'))
 
@@ -127,10 +131,12 @@ describe('useCutJob', () => {
       await result.current.startCut({ startSeconds: 5, endSeconds: 15, mode: 'FastCopy' })
     })
     expect(result.current.cutState.status).toBe('polling')
+    expect(capturedSignal?.aborted).toBe(false)
 
     act(() => {
       result.current.reset()
     })
+    expect(capturedSignal?.aborted).toBe(true)
     expect(result.current.cutState.status).toBe('idle')
   })
 })

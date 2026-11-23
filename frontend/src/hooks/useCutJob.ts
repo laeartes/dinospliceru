@@ -73,6 +73,7 @@ export function useCutJob(videoId: string | null): UseCutJobResult {
     let active = true
     let consecutiveFailures = 0
     const pollStartTime = Date.now()
+    const pollController = new AbortController()
 
     const check = async () => {
       try {
@@ -85,8 +86,8 @@ export function useCutJob(videoId: string | null): UseCutJobResult {
           return
         }
 
-        const job = await getCutJob(jobId)
-        if (!active) return
+        const job = await getCutJob(jobId, pollController.signal)
+        if (!active || pollController.signal.aborted) return
 
         consecutiveFailures = 0
 
@@ -108,7 +109,7 @@ export function useCutJob(videoId: string | null): UseCutJobResult {
         setCutState({ status: 'polling', job })
         pollTimerRef.current = setTimeout(check, POLL_INTERVAL_MS)
       } catch (err: unknown) {
-        if (!active) return
+        if (!active || pollController.signal.aborted) return
 
         if (Date.now() - pollStartTime >= POLL_TIMEOUT_MS) {
           setCutState({
@@ -134,6 +135,7 @@ export function useCutJob(videoId: string | null): UseCutJobResult {
 
     return () => {
       active = false
+      pollController.abort()
       if (pollTimerRef.current) {
         clearTimeout(pollTimerRef.current)
         pollTimerRef.current = null
