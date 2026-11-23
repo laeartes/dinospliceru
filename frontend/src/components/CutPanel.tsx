@@ -13,11 +13,16 @@ interface CutPanelProps {
   onCuttingChange?: (isCutting: boolean) => void
 }
 
+function floorToTenths(seconds: number): number {
+  return Math.floor(seconds * 10) / 10
+}
+
 export default function CutPanel({ video, localFile = null, onBack, onCuttingChange }: CutPanelProps) {
   const maxDuration = video.durationSeconds
+  const maxBoundSeconds = maxDuration !== null ? floorToTenths(maxDuration) : null
   const [startInput, setStartInput] = useState('00:00.0')
   const [endInput, setEndInput] = useState(() =>
-    maxDuration !== null ? formatTimestamp(maxDuration) : ''
+    maxBoundSeconds !== null ? formatTimestamp(maxBoundSeconds) : ''
   )
   const [mode, setMode] = useState<CutMode>('FastCopy')
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -66,17 +71,18 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
   const parsedEnd = parseTimestamp(endInput)
 
   const sliderStart =
-    maxDuration !== null && parsedStart !== null
-      ? Math.min(Math.max(parsedStart, 0), maxDuration)
+    maxBoundSeconds !== null && parsedStart !== null
+      ? Math.min(Math.max(parsedStart, 0), maxBoundSeconds)
       : 0
   const sliderEnd =
-    maxDuration !== null && parsedEnd !== null
-      ? Math.min(Math.max(parsedEnd, 0), maxDuration)
-      : maxDuration ?? 0
+    maxBoundSeconds !== null && parsedEnd !== null
+      ? Math.min(Math.max(parsedEnd, 0), maxBoundSeconds)
+      : maxBoundSeconds ?? 0
 
   function clampToDuration(time: number): number {
     const safe = Math.max(0, Number.isFinite(time) ? time : 0)
-    return maxDuration !== null ? Math.min(safe, maxDuration) : safe
+    const clamped = maxDuration !== null ? Math.min(safe, maxDuration) : safe
+    return floorToTenths(clamped)
   }
 
   function handleSetStartFromVideo() {
@@ -214,14 +220,14 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
                   type="text"
                   value={endInput}
                   onChange={(e) => setEndInput(e.target.value)}
-                  placeholder={maxDuration !== null ? formatTimestamp(maxDuration) : '00:10.0'}
+                  placeholder={maxBoundSeconds !== null ? formatTimestamp(maxBoundSeconds) : '00:10.0'}
                   className="w-full border-2 border-cyber-border bg-slate-50 px-3 py-2 font-mono text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors"
                   data-testid="cut-end-input"
                 />
               </div>
             </div>
 
-            {maxDuration !== null && maxDuration > 0 && (
+            {maxBoundSeconds !== null && maxBoundSeconds > 0 && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="w-10 text-[11px] font-mono text-slate-400">Start</span>
@@ -229,10 +235,10 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
                     type="range"
                     aria-label="Start time slider"
                     min={0}
-                    max={maxDuration}
+                    max={maxBoundSeconds}
                     step={0.1}
                     value={sliderStart}
-                    onChange={(e) => setStartInput(formatTimestamp(Number(e.target.value)))}
+                    onChange={(e) => setStartInput(formatTimestamp(clampToDuration(Number(e.target.value))))}
                     className="w-full accent-cyber-cyan cursor-pointer"
                     data-testid="cut-start-range"
                   />
@@ -243,10 +249,10 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
                     type="range"
                     aria-label="End time slider"
                     min={0}
-                    max={maxDuration}
+                    max={maxBoundSeconds}
                     step={0.1}
                     value={sliderEnd}
-                    onChange={(e) => setEndInput(formatTimestamp(Number(e.target.value)))}
+                    onChange={(e) => setEndInput(formatTimestamp(clampToDuration(Number(e.target.value))))}
                     className="w-full accent-cyber-pink cursor-pointer"
                     data-testid="cut-end-range"
                   />
@@ -255,7 +261,7 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
             )}
 
             <p className="mt-2 text-xs font-mono text-slate-400" data-testid="cut-helper-bounds">
-              Range: 00:00.0 – {maxDuration !== null ? formatTimestamp(maxDuration) : 'source end'}
+              Range: 00:00.0 – {maxBoundSeconds !== null ? formatTimestamp(maxBoundSeconds) : 'source end'}
               {validation.startSeconds !== null && validation.endSeconds !== null && (
                 <>
                   {' '}

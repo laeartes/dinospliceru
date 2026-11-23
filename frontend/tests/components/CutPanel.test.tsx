@@ -38,6 +38,18 @@ describe('CutPanel', () => {
       expect(screen.getByTestId('start-cut-btn')).not.toBeDisabled()
     })
 
+    it('floors fractional durations to tenths so initial endInput stays valid on load', () => {
+      render(<CutPanel video={{ ...mockReadyVideo, durationSeconds: 10.06 }} />)
+
+      expect(screen.getByTestId('cut-end-input')).toHaveValue('00:10.0')
+      expect(screen.queryByTestId('cut-validation-error')).not.toBeInTheDocument()
+      expect(screen.getByTestId('start-cut-btn')).not.toBeDisabled()
+
+      fireEvent.change(screen.getByTestId('cut-end-range'), { target: { value: '10.06' } })
+      expect(screen.getByTestId('cut-end-input')).toHaveValue('00:10.0')
+      expect(screen.getByTestId('start-cut-btn')).not.toBeDisabled()
+    })
+
     it('blocks submission when start >= end', () => {
       const startCutSpy = vi.spyOn(cutApi, 'startCut')
       render(<CutPanel video={mockReadyVideo} />)
