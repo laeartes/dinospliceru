@@ -61,8 +61,9 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
         job.AudioBitrateKbps.Should().Be(96);
         job.Preset.Should().Be(EncodingPresetOption.Slow);
 
-        job.Status.Should().Be(CompressionJobStatus.Pending);
-        (await WasEnqueuedAsync(body.JobId)).Should().BeTrue("the controller must enqueue the job id after saving it");
+        // The compression worker consumes the queue, so the job leaving Pending proves the controller enqueued it
+        CompressionJobStatus statusAfterWorker = await WaitForJobToLeavePendingAsync(body.JobId);
+        statusAfterWorker.Should().NotBe(CompressionJobStatus.Pending, "the controller must enqueue the job id after saving it");
     }
 
     [Theory]
@@ -208,26 +209,25 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
         return await db.CompressionJobs.CountAsync(j => j.SourceVideoId == videoId);
     }
 
-    private async Task<bool> WasEnqueuedAsync(Guid jobId)
+    // The seeded video has no file, so the worker picks the job up and fails it quickly
+    private async Task<CompressionJobStatus> WaitForJobToLeavePendingAsync(Guid jobId)
     {
-        IBackgroundJobQueue<CompressionJob> queue = factory.Services.GetRequiredService<IBackgroundJobQueue<CompressionJob>>();
-        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
-
-        try
+        DateTime deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
         {
-            await foreach (Guid id in queue.DequeueAllAsync(timeout.Token))
+            using IServiceScope scope = factory.Services.CreateScope();
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            CompressionJobStatus status = await db.CompressionJobs
+                .Where(j => j.Id == jobId)
+                .Select(j => j.Status)
+                .SingleAsync();
+
+            if (status != CompressionJobStatus.Pending || DateTime.UtcNow >= deadline)
             {
-                if (id == jobId)
-                {
-                    return true;
-                }
+                return status;
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // Timed out without seeing the id
-        }
 
-        return false;
+            await Task.Delay(100);
+        }
     }
 }
