@@ -8,6 +8,8 @@ using DinoSplicer.Api.Services;
 
 using FluentAssertions;
 
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,7 +24,18 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
     public async Task CreateCompression_ReadyVideoWithAllParameters_Returns202CreatesPendingJobAndEnqueuesIt()
     {
         Video video = await SeedVideoAsync(VideoStatus.Ready);
-        HttpClient client = factory.CreateClient();
+
+        // Without the worker nothing drains the queue, so the test can check that the controller enqueued the id
+        WebApplicationFactory<Program> workerlessFactory = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                ServiceDescriptor? worker = services.SingleOrDefault(d => d.ImplementationType == typeof(CompressionProcessingWorker));
+                if (worker is not null)
+                {
+                    services.Remove(worker);
+                }
+            }));
+        HttpClient client = workerlessFactory.CreateClient();
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             CompressUrl(video.Id),
@@ -61,9 +74,8 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
         job.AudioBitrateKbps.Should().Be(96);
         job.Preset.Should().Be(EncodingPresetOption.Slow);
 
-        // The compression worker consumes the queue, so the job leaving Pending proves the controller enqueued it
-        CompressionJobStatus statusAfterWorker = await WaitForJobToLeavePendingAsync(body.JobId);
-        statusAfterWorker.Should().NotBe(CompressionJobStatus.Pending, "the controller must enqueue the job id after saving it");
+        job.Status.Should().Be(CompressionJobStatus.Pending);
+        (await WasEnqueuedAsync(workerlessFactory.Services, body.JobId)).Should().BeTrue("the controller must enqueue the job id after saving it");
     }
 
     [Theory]
@@ -209,25 +221,26 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
         return await db.CompressionJobs.CountAsync(j => j.SourceVideoId == videoId);
     }
 
-    // The seeded video has no file, so the worker picks the job up and fails it quickly
-    private async Task<CompressionJobStatus> WaitForJobToLeavePendingAsync(Guid jobId)
+    private static async Task<bool> WasEnqueuedAsync(IServiceProvider services, Guid jobId)
     {
-        DateTime deadline = DateTime.UtcNow.AddSeconds(10);
-        while (true)
+        IBackgroundJobQueue<CompressionJob> queue = services.GetRequiredService<IBackgroundJobQueue<CompressionJob>>();
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(5));
+
+        try
         {
-            using IServiceScope scope = factory.Services.CreateScope();
-            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            CompressionJobStatus status = await db.CompressionJobs
-                .Where(j => j.Id == jobId)
-                .Select(j => j.Status)
-                .SingleAsync();
-
-            if (status != CompressionJobStatus.Pending || DateTime.UtcNow >= deadline)
+            await foreach (Guid id in queue.DequeueAllAsync(timeout.Token))
             {
-                return status;
+                if (id == jobId)
+                {
+                    return true;
+                }
             }
-
-            await Task.Delay(100);
         }
+        catch (OperationCanceledException)
+        {
+            // Timed out without seeing the id
+        }
+
+        return false;
     }
 }
