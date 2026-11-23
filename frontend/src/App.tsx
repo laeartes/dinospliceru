@@ -52,6 +52,7 @@ function App() {
                 </div>
                 <div className={currentView === 'cutter' ? 'block' : 'hidden'}>
                   <CutPanel
+                    key={readyVideo.id}
                     video={readyVideo}
                     localFile={selectedLocalFile}
                     onBack={() => setCurrentView('overview')}
