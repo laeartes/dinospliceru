@@ -4,6 +4,7 @@ import Footer from './components/Footer'
 import VideoUploader from './components/VideoUploader'
 import SplicePanel from './components/SplicePanel'
 import CutPanel from './components/CutPanel'
+import CompressionPanel from './components/CompressionPanel'
 import { useUploadConfig } from './hooks/useUploadConfig'
 import type { VideoResponse } from './api/videoApi'
 
@@ -11,9 +12,10 @@ function App() {
   const uploadConfig = useUploadConfig()
   const [readyVideo, setReadyVideo] = useState<VideoResponse | null>(null)
   const [selectedLocalFile, setSelectedLocalFile] = useState<File | null>(null)
-  const [currentView, setCurrentView] = useState<'overview' | 'splicer' | 'cutter'>('overview')
+  const [currentView, setCurrentView] = useState<'overview' | 'splicer' | 'cutter' | 'compressor'>('overview')
   const [isSplicing, setIsSplicing] = useState(false)
   const [isCutting, setIsCutting] = useState(false)
+  const [isCompressing, setIsCompressing] = useState(false)
 
   const handleVideoReady = (video: VideoResponse | null) => {
     setReadyVideo(video)
@@ -21,6 +23,7 @@ function App() {
       setCurrentView('overview')
       setIsSplicing(false)
       setIsCutting(false)
+      setIsCompressing(false)
     }
   }
 
@@ -39,6 +42,8 @@ function App() {
                 isSplicing={isSplicing}
                 onOpenCutter={() => setCurrentView('cutter')}
                 isCutting={isCutting}
+                onOpenCompressor={() => setCurrentView('compressor')}
+                isCompressing={isCompressing}
               />
             </div>
             {readyVideo && (
@@ -57,6 +62,14 @@ function App() {
                     localFile={selectedLocalFile}
                     onBack={() => setCurrentView('overview')}
                     onCuttingChange={setIsCutting}
+                  />
+                </div>
+                <div className={currentView === 'compressor' ? 'block' : 'hidden'}>
+                  <CompressionPanel
+                    key={readyVideo.id}
+                    video={readyVideo}
+                    onBack={() => setCurrentView('overview')}
+                    onCompressingChange={setIsCompressing}
                   />
                 </div>
               </>
