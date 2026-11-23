@@ -43,6 +43,9 @@ describe('CompressionPanel', () => {
       fireEvent.click(screen.getByTestId('format-mp4'))
       expect(screen.getByTestId('selected-codec-info')).toHaveTextContent('Active codec: H264 (CRF 0–51)')
       expect(screen.getByTestId('crf-input')).toHaveValue('51')
+      expect(screen.getByTestId('resolution-720p')).toHaveTextContent('Downscale to 1280x720')
+      expect(screen.getByTestId('preset-hint')).toHaveTextContent('Balanced')
+      expect(screen.getByTestId('audio-bitrate-hint')).toHaveTextContent('Standard')
     })
 
     it('blocks submission on odd custom dimensions and out-of-range CRF', () => {

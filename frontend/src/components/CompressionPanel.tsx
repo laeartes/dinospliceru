@@ -27,23 +27,39 @@ interface CompressionPanelProps {
   onCompressingChange?: (isCompressing: boolean) => void
 }
 
-const PRESET_OPTIONS: ReadonlyArray<EncodingPresetOption> = ['Ultrafast', 'Fast', 'Medium', 'Slow']
-const AUDIO_BITRATE_OPTIONS: ReadonlyArray<{ label: string; value: number | null }> = [
-  { label: 'Original', value: null },
-  { label: '64 kbps', value: 64 },
-  { label: '96 kbps', value: 96 },
-  { label: '128 kbps', value: 128 },
-  { label: '192 kbps', value: 192 },
-  { label: '256 kbps', value: 256 },
-  { label: '320 kbps', value: 320 },
+const PRESET_OPTIONS: ReadonlyArray<{ value: EncodingPresetOption; hint: string }> = [
+  { value: 'Ultrafast', hint: 'Fastest, largest file' },
+  { value: 'Fast', hint: 'Quick encode' },
+  { value: 'Medium', hint: 'Balanced (｡•̀ᴗ-)✧' },
+  { value: 'Slow', hint: 'Slowest, smallest file' },
 ]
-const RESOLUTION_PRESETS: ReadonlyArray<{ id: ResolutionPreset; label: string }> = [
-  { id: 'original', label: 'Original' },
-  { id: '1080p', label: '1080p' },
-  { id: '720p', label: '720p' },
-  { id: '480p', label: '480p' },
-  { id: 'custom', label: 'Custom' },
+const AUDIO_BITRATE_OPTIONS: ReadonlyArray<{ label: string; value: number | null; hint: string }> = [
+  { label: 'Original', value: null, hint: 'Keep source audio' },
+  { label: '64 kbps', value: 64, hint: 'Voice / smallest' },
+  { label: '96 kbps', value: 96, hint: 'Compact' },
+  { label: '128 kbps', value: 128, hint: 'Standard (｡•̀ᴗ-)✧' },
+  { label: '192 kbps', value: 192, hint: 'High quality' },
+  { label: '256 kbps', value: 256, hint: 'Very high quality' },
+  { label: '320 kbps', value: 320, hint: 'Near-transparent' },
 ]
+const RESOLUTION_PRESETS: ReadonlyArray<{ id: ResolutionPreset; label: string; tip: string }> = [
+  { id: 'original', label: 'Original', tip: 'Keep original resolution' },
+  { id: '1080p', label: '1080p', tip: 'Downscale to 1920x1080' },
+  { id: '720p', label: '720p', tip: 'Downscale to 1280x720' },
+  { id: '480p', label: '480p', tip: 'Downscale to 854x480' },
+  { id: 'custom', label: 'Custom', tip: 'Custom even WxH' },
+]
+
+function HoverTip({ text }: { text: string }) {
+  return (
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap border border-cyber-cyan bg-cyber-dark px-2 py-1 font-mono text-[10px] font-normal normal-case tracking-normal text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+    >
+      {text}
+    </span>
+  )
+}
 
 export default function CompressionPanel({
   video,
@@ -239,7 +255,7 @@ export default function CompressionPanel({
                     aria-checked={resolutionPreset === option.id}
                     disabled={disabled}
                     onClick={() => setResolutionPreset(option.id)}
-                    className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                    className={`group relative px-3 py-1 text-xs font-mono border transition-colors ${
                       resolutionPreset === option.id
                         ? 'border-cyber-cyan bg-cyber-cyan text-cyber-dark font-semibold'
                         : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -247,6 +263,7 @@ export default function CompressionPanel({
                     data-testid={`resolution-${option.id}`}
                   >
                     {option.label}
+                    <HoverTip text={option.tip} />
                   </button>
                 )
               })}
@@ -291,8 +308,12 @@ export default function CompressionPanel({
           {/* CRF Quality */}
           <div className="w-full max-w-md text-left">
             <div className="flex items-center justify-between mb-1">
-              <label htmlFor="compress-crf-input" className="text-xs font-mono text-slate-600 uppercase tracking-wide">
+              <label
+                htmlFor="compress-crf-input"
+                className="group relative inline-block text-xs font-mono text-slate-600 uppercase tracking-wide cursor-help"
+              >
                 3. Quality (CRF {MIN_CRF}–{maxCrf}):
+                <HoverTip text="Lower = sharper/larger, higher = smaller" />
               </label>
               <input
                 id="compress-crf-input"
@@ -323,8 +344,12 @@ export default function CompressionPanel({
           {/* Preset & Audio Bitrate */}
           <div className="w-full max-w-md grid grid-cols-2 gap-3 text-left">
             <div>
-              <label htmlFor="compress-preset-select" className="block text-xs font-mono text-slate-600 mb-1 uppercase tracking-wide">
+              <label
+                htmlFor="compress-preset-select"
+                className="group relative inline-block text-xs font-mono text-slate-600 mb-1 uppercase tracking-wide cursor-help"
+              >
                 4. Speed Preset:
+                <HoverTip text="Slower = smaller file, longer encode" />
               </label>
               <select
                 id="compress-preset-select"
@@ -334,15 +359,22 @@ export default function CompressionPanel({
                 data-testid="preset-select"
               >
                 {PRESET_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+                  <option key={option.value} value={option.value}>
+                    {option.value}
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-[11px] font-mono text-slate-400" data-testid="preset-hint">
+                {PRESET_OPTIONS.find((o) => o.value === preset)?.hint}
+              </p>
             </div>
             <div>
-              <label htmlFor="compress-audio-select" className="block text-xs font-mono text-slate-600 mb-1 uppercase tracking-wide">
+              <label
+                htmlFor="compress-audio-select"
+                className="group relative inline-block text-xs font-mono text-slate-600 mb-1 uppercase tracking-wide cursor-help"
+              >
                 5. Audio Bitrate:
+                <HoverTip text="Higher = clearer audio, larger file" />
               </label>
               <select
                 id="compress-audio-select"
@@ -354,11 +386,17 @@ export default function CompressionPanel({
                 data-testid="audio-bitrate-select"
               >
                 {AUDIO_BITRATE_OPTIONS.map((option) => (
-                  <option key={option.label} value={option.value === null ? 'original' : String(option.value)}>
+                  <option
+                    key={option.label}
+                    value={option.value === null ? 'original' : String(option.value)}
+                  >
                     {option.label}
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-[11px] font-mono text-slate-400" data-testid="audio-bitrate-hint">
+                {AUDIO_BITRATE_OPTIONS.find((o) => o.value === audioBitrateKbps)?.hint}
+              </p>
             </div>
           </div>
 
