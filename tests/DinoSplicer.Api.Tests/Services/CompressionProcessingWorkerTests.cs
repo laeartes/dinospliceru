@@ -277,6 +277,32 @@ public class CompressionProcessingWorkerTests(VideoApiFactory factory) : IClassF
     }
 
     [Fact]
+    public async Task ProcessAsync_SourceVideoDeletedBeforeProcessing_SkipsCompressionBecauseJobIsCascadeDeleted()
+    {
+        CompressionJob job = await SeedJobWithoutFileAsync();
+        using (IServiceScope scope = factory.Services.CreateScope())
+        {
+            AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Videos.Where(v => v.Id == job.SourceVideoId).ExecuteDeleteAsync();
+        }
+
+        bool compressorCalled = false;
+        StubVideoCompressor compressor = new((_, _, outputDirectory, _, _, _) =>
+        {
+            compressorCalled = true;
+            return Task.FromResult(new CompressionResult(Path.Combine(outputDirectory, "compressed.mp4"), 10.0, 2048));
+        });
+
+        Func<Task> act = () => CreateWorker(compressor: compressor).ProcessAsync(job.Id, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+        compressorCalled.Should().BeFalse();
+        using IServiceScope checkScope = factory.Services.CreateScope();
+        AppDbContext checkDb = checkScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await checkDb.CompressionJobs.AnyAsync(j => j.Id == job.Id)).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task ProcessAsync_RealCompressorOnSampleVideo_SetsReadyAndWritesCompressedVideo()
     {
         CompressionJob job = await SeedJobWithSampleVideoAsync();

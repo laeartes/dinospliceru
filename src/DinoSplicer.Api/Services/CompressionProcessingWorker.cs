@@ -91,6 +91,7 @@ public class CompressionProcessingWorker(
             return;
         }
 
+        // Deleting a video cascade-deletes its jobs, so there is no job left to mark as failed
         if (!await db.Videos.AnyAsync(v => v.Id == video.Id, cancellationToken))
         {
             logger.LogWarning("Source video {VideoId} for compression job {JobId} was deleted before compression started, skipping", video.Id, jobId);
@@ -155,6 +156,8 @@ public class CompressionProcessingWorker(
         }
 
         progressTracker.Remove(job.Id);
+
+        // If this save fails the job stays Processing and RecoverPendingJobsAsync re-queues it on the next startup
         await db.SaveChangesAsync(CancellationToken.None);
     }
 
