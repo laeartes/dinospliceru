@@ -50,6 +50,8 @@ interface VideoUploaderProps {
   isSplicing?: boolean
   onOpenCutter?: () => void
   isCutting?: boolean
+  onOpenCompressor?: () => void
+  isCompressing?: boolean
 }
 
 function VideoUploader({
@@ -60,6 +62,8 @@ function VideoUploader({
   isSplicing = false,
   onOpenCutter,
   isCutting = false,
+  onOpenCompressor,
+  isCompressing = false,
 }: VideoUploaderProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -383,6 +387,21 @@ function VideoUploader({
                   </>
                 ) : (
                   <span>Cut (｡•̀ᴗ-)✧ ✦</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={onOpenCompressor}
+                className="inline-flex items-center gap-2 bg-cyber-teal px-5 py-2 font-medium text-white hover:bg-cyber-cyan hover:text-cyber-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal focus-visible:ring-offset-2 transition-colors cursor-pointer"
+                data-testid="open-compressor-btn"
+              >
+                {isCompressing ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" aria-hidden="true" />
+                    <span>Compress (processing...) ( •̀_•́ ) ✦</span>
+                  </>
+                ) : (
+                  <span>Compress (｡•̀ᴗ-)✧ ✦</span>
                 )}
               </button>
               <button

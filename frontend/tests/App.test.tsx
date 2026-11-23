@@ -277,5 +277,11 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('cut-back-btn'))
     expect(screen.getByTestId('open-cutter-btn')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('open-compressor-btn'))
+    expect(screen.getByTestId('compression-panel')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('compression-back-btn'))
+    expect(screen.getByTestId('open-compressor-btn')).toBeInTheDocument()
   })
 })
