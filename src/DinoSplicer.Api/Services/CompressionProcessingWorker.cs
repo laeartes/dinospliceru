@@ -18,6 +18,7 @@ public class CompressionProcessingWorker(
     public const string GenericFailureMessage = "The video could not be compressed.";
     public const string SourceBeingDeletedMessage = "The source video is being deleted.";
     private const int MaxOutputFileNameLength = 255;
+    private const int MaxErrorMessageLength = 500;
     private const string OutputFileNameSuffix = "_compressed";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -176,7 +177,9 @@ public class CompressionProcessingWorker(
     private async Task MarkFailedAsync(CompressionJob job, string errorMessage, string outputDirectory, IFileSystem fileSystem)
     {
         job.Status = CompressionJobStatus.Failed;
-        job.ErrorMessage = errorMessage;
+        job.ErrorMessage = errorMessage.Length <= MaxErrorMessageLength
+            ? errorMessage
+            : errorMessage[..MaxErrorMessageLength];
 
         try
         {

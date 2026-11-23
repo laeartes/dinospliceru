@@ -26,7 +26,7 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
         Video video = await SeedVideoAsync(VideoStatus.Ready);
 
         // Without the worker nothing drains the queue, so the test can check that the controller enqueued the id
-        WebApplicationFactory<Program> workerlessFactory = factory.WithWebHostBuilder(builder =>
+        await using WebApplicationFactory<Program> workerlessFactory = factory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services =>
             {
                 ServiceDescriptor? worker = services.SingleOrDefault(d => d.ImplementationType == typeof(CompressionProcessingWorker));
@@ -35,7 +35,7 @@ public class CompressionControllerTests(VideoApiFactory factory) : IClassFixture
                     services.Remove(worker);
                 }
             }));
-        HttpClient client = workerlessFactory.CreateClient();
+        using HttpClient client = workerlessFactory.CreateClient();
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             CompressUrl(video.Id),

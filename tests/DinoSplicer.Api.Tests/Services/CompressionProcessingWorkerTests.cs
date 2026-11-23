@@ -179,6 +179,20 @@ public class CompressionProcessingWorkerTests(VideoApiFactory factory) : IClassF
     }
 
     [Fact]
+    public async Task ProcessAsync_MediaProcessingExceptionWithLongMessage_TruncatesErrorMessageTo500Characters()
+    {
+        CompressionJob job = await SeedJobWithoutFileAsync();
+        string longMessage = new('x', 600);
+        StubVideoCompressor compressor = new((_, _, _, _, _, _) => throw new MediaProcessingException(longMessage));
+
+        await CreateWorker(compressor: compressor).ProcessAsync(job.Id, CancellationToken.None);
+
+        CompressionJob processed = await LoadJobAsync(job.Id);
+        processed.Status.Should().Be(CompressionJobStatus.Failed);
+        processed.ErrorMessage.Should().HaveLength(500);
+    }
+
+    [Fact]
     public async Task ProcessAsync_CompressorThrowsUnexpectedException_SetsFailedWithGenericMessage()
     {
         CompressionJob job = await SeedJobWithoutFileAsync();
