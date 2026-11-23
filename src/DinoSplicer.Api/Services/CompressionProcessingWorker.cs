@@ -1,4 +1,5 @@
 using DinoSplicer.Api.Data;
+using DinoSplicer.Api.Exceptions;
 using DinoSplicer.Api.Models;
 
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ public class CompressionProcessingWorker(
     ILogger<CompressionProcessingWorker> logger
 ) : BackgroundService
 {
+    public const string GenericFailureMessage = "The video could not be compressed.";
     public const string SourceBeingDeletedMessage = "The source video is being deleted.";
     private const int MaxOutputFileNameLength = 255;
     private const string OutputFileNameSuffix = "_compressed";
@@ -57,6 +59,7 @@ public class CompressionProcessingWorker(
         using IServiceScope scope = scopeFactory.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         IVideoCompressor compressor = scope.ServiceProvider.GetRequiredService<IVideoCompressor>();
+        IFileSystem fileSystem = scope.ServiceProvider.GetRequiredService<IFileSystem>();
         VideoUploadOptions options = scope.ServiceProvider.GetRequiredService<IOptions<VideoUploadOptions>>().Value;
         IWebHostEnvironment environment = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
 
@@ -116,22 +119,40 @@ public class CompressionProcessingWorker(
             ? TimeSpan.FromSeconds(duration)
             : null;
 
-        CompressionResult result = await compressor.CompressAsync(
-            job.Id,
-            sourcePath,
-            outputDirectory,
-            request,
-            sourceDuration,
-            cancellationToken
-        );
+        try
+        {
+            CompressionResult result = await compressor.CompressAsync(
+                job.Id,
+                sourcePath,
+                outputDirectory,
+                request,
+                sourceDuration,
+                cancellationToken
+            );
 
-        // The compressor returns an absolute path, the database keeps it relative to the storage folder
-        string outputFile = Path.GetFileName(result.FilePath);
-        job.OutputFileName = BuildOutputFileName(video.OriginalFileName, Path.GetExtension(outputFile));
-        job.OutputStoragePath = Path.Combine(CompressionJob.OutputDirectoryName, job.Id.ToString(), outputFile);
-        job.OutputDurationSeconds = result.DurationSeconds;
-        job.OutputSizeBytes = result.SizeBytes;
-        job.Status = CompressionJobStatus.Ready;
+            // The compressor returns an absolute path, the database keeps it relative to the storage folder
+            string outputFile = Path.GetFileName(result.FilePath);
+            job.OutputFileName = BuildOutputFileName(video.OriginalFileName, Path.GetExtension(outputFile));
+            job.OutputStoragePath = Path.Combine(CompressionJob.OutputDirectoryName, job.Id.ToString(), outputFile);
+            job.OutputDurationSeconds = result.DurationSeconds;
+            job.OutputSizeBytes = result.SizeBytes;
+            job.Status = CompressionJobStatus.Ready;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            progressTracker.Remove(job.Id);
+            throw;
+        }
+        catch (MediaProcessingException ex)
+        {
+            logger.LogWarning(ex, "Compression failed for job {JobId}", jobId);
+            await MarkFailedAsync(job, ex.Message, outputDirectory, fileSystem);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error while compressing job {JobId}", jobId);
+            await MarkFailedAsync(job, GenericFailureMessage, outputDirectory, fileSystem);
+        }
 
         progressTracker.Remove(job.Id);
         await db.SaveChangesAsync(CancellationToken.None);
@@ -147,5 +168,20 @@ public class CompressionProcessingWorker(
         }
 
         return $"{baseName}{OutputFileNameSuffix}{outputExtension}";
+    }
+
+    private async Task MarkFailedAsync(CompressionJob job, string errorMessage, string outputDirectory, IFileSystem fileSystem)
+    {
+        job.Status = CompressionJobStatus.Failed;
+        job.ErrorMessage = errorMessage;
+
+        try
+        {
+            await fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, CancellationToken.None);
+        }
+        catch (Exception cleanupEx)
+        {
+            logger.LogWarning(cleanupEx, "Failed to delete partial compression output for job {JobId}", job.Id);
+        }
     }
 }
