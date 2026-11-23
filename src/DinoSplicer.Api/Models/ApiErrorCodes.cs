@@ -18,6 +18,8 @@ public static class ApiErrorCodes
     public const string CutJobNotReady = "CUT_JOB_NOT_READY";
     public const string CutOutputFileMissing = "CUT_OUTPUT_FILE_MISSING";
     public const string CompressionJobNotFound = "COMPRESSION_JOB_NOT_FOUND";
+    public const string CompressionJobNotReady = "COMPRESSION_JOB_NOT_READY";
+    public const string CompressionOutputFileMissing = "COMPRESSION_OUTPUT_FILE_MISSING";
     public const string InvalidUpload = "INVALID_UPLOAD";
     public const string InvalidFileCount = "INVALID_FILE_COUNT";
     public const string FileEmpty = "FILE_EMPTY";
