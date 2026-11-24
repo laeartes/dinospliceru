@@ -286,6 +286,70 @@ public class FFMpegVideoCompressorTests : IDisposable
     }
 
     [Fact]
+    public void CalculateTargetVideoBitrateKbps_ComputesExpectedBitrateAfterOverheadAndAudio()
+    {
+        // 8MB over 41.3s with 128kbps audio -> ~1430 kbps video
+        int bitrate = FFMpegVideoCompressor.CalculateTargetVideoBitrateKbps(
+            targetSizeBytes: 8L * 1024 * 1024,
+            duration: TimeSpan.FromSeconds(41.3),
+            audioBitrateKbps: 128
+        );
+
+        bitrate.Should().BeInRange(1400, 1460);
+    }
+
+    [Fact]
+    public void BuildOutputArguments_TargetBitrateTwoPass_GeneratesPass1AndPass2Arguments()
+    {
+        CompressionRequest request = new()
+        {
+            Format = OutputContainerFormat.Mp4,
+            VideoCodec = VideoCodecOption.H264,
+            Preset = EncodingPresetOption.Medium,
+            AudioBitrateKbps = 128,
+            TargetSizeBytes = 8L * 1024 * 1024,
+        };
+
+        string pass1 = FFMpegVideoCompressor.BuildOutputArguments(request, targetVideoBitrateKbps: 1400, pass: 1, passLogPrefix: "/tmp/log");
+        pass1.Should().Contain("-b:v 1400k");
+        pass1.Should().Contain("-pass 1");
+        pass1.Should().Contain("-passlogfile \"/tmp/log\"");
+        pass1.Should().Contain("-an -f null");
+        pass1.Should().NotContain("-crf");
+
+        string pass2 = FFMpegVideoCompressor.BuildOutputArguments(request, targetVideoBitrateKbps: 1400, pass: 2, passLogPrefix: "/tmp/log");
+        pass2.Should().Contain("-b:v 1400k");
+        pass2.Should().Contain("-pass 2");
+        pass2.Should().Contain("-c:a aac");
+        pass2.Should().Contain("-b:a 128k");
+        pass2.Should().Contain("-movflags +faststart");
+        pass2.Should().NotContain("-crf");
+    }
+
+    [Fact]
+    public async Task CompressAsync_WithTargetSizeBytes_ProducesValidTwoPassMp4AndCleansPassLogs()
+    {
+        Guid jobId = Guid.NewGuid();
+        string outputDir = Path.Combine(_outputDirectory, "mp4-target-size");
+        CompressionRequest request = new()
+        {
+            Format = OutputContainerFormat.Mp4,
+            VideoCodec = VideoCodecOption.H264,
+            AudioBitrateKbps = 64,
+            Preset = EncodingPresetOption.Ultrafast,
+            TargetSizeBytes = 100 * 1024,
+        };
+
+        CompressionResult result = await _compressor.CompressAsync(jobId, CheckedInSamplePath, outputDir, request);
+
+        File.Exists(result.FilePath).Should().BeTrue();
+        result.SizeBytes.Should().BeGreaterThan(0);
+        Directory.GetFiles(outputDir, "*passlog*").Should().BeEmpty();
+        _progressTracker.GetReports(jobId).Last().Should().Be(100);
+        await AssertPlayableWithFfmpegDecodeAsync(result.FilePath);
+    }
+
+    [Fact]
     public async Task CompressAsync_InvalidArguments_ThrowsArgumentException()
     {
         CompressionRequest halfDimensions = new() { TargetWidth = 160, TargetHeight = null };

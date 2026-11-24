@@ -30,6 +30,10 @@ public class CompressionRequest
     [Range(CompressionJob.MinAudioBitrateKbps, CompressionJob.MaxAudioBitrateKbps)]
     public int? AudioBitrateKbps { get; set; }
 
+    // null uses CRF quality mode; when set, FFmpeg runs 2-pass bitrate encoding targeting this byte size
+    [Range(1, long.MaxValue)]
+    public long? TargetSizeBytes { get; set; }
+
     [JsonConverter(typeof(JsonStringEnumConverter<EncodingPresetOption>))]
     [EnumDataType(typeof(EncodingPresetOption))]
     public EncodingPresetOption Preset { get; set; } = EncodingPresetOption.Medium;

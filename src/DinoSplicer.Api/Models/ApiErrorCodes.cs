@@ -38,6 +38,7 @@ public static class ApiErrorCodes
     public const string InvalidCompressionCrf = "INVALID_COMPRESSION_CRF";
     public const string InvalidCompressionResolution = "INVALID_COMPRESSION_RESOLUTION";
     public const string InvalidCompressionAudioBitrate = "INVALID_COMPRESSION_AUDIO_BITRATE";
+    public const string InvalidCompressionTargetSize = "INVALID_COMPRESSION_TARGET_SIZE";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string MediaProcessingFailed = "MEDIA_PROCESSING_FAILED";
     public const string DatabaseError = "DATABASE_ERROR";

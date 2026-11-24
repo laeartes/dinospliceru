@@ -37,6 +37,10 @@ public class CompressionJob
     [Range(MinAudioBitrateKbps, MaxAudioBitrateKbps)]
     public int? AudioBitrateKbps { get; set; }
 
+    // null uses CRF mode; when set, targets this approximate output size in bytes via 2-pass bitrate encoding
+    [Range(1, long.MaxValue)]
+    public long? TargetSizeBytes { get; set; }
+
     [EnumDataType(typeof(EncodingPresetOption))]
     public EncodingPresetOption Preset { get; set; }
 

@@ -188,6 +188,9 @@ public class AppDbContext : DbContext
                 table.HasCheckConstraint(
                     "ck_compression_jobs_audio_bitrate_range",
                     "audio_bitrate_kbps IS NULL OR audio_bitrate_kbps BETWEEN 32 AND 512");
+                table.HasCheckConstraint(
+                    "ck_compression_jobs_positive_target_file_size",
+                    "target_size_bytes IS NULL OR target_size_bytes > 0");
             });
 
             entity.HasKey(j => j.Id);

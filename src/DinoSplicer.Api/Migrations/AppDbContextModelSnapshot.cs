@@ -93,6 +93,10 @@ namespace DinoSplicer.Api.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("target_height");
 
+                    b.Property<long?>("TargetSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("target_size_bytes");
+
                     b.Property<int?>("TargetWidth")
                         .HasColumnType("integer")
                         .HasColumnName("target_width");
@@ -117,6 +121,8 @@ namespace DinoSplicer.Api.Migrations
                             t.HasCheckConstraint("ck_compression_jobs_audio_bitrate_range", "audio_bitrate_kbps IS NULL OR audio_bitrate_kbps BETWEEN 32 AND 512");
 
                             t.HasCheckConstraint("ck_compression_jobs_crf_range", "crf BETWEEN 0 AND 63");
+
+                            t.HasCheckConstraint("ck_compression_jobs_positive_target_file_size", "target_size_bytes IS NULL OR target_size_bytes > 0");
 
                             t.HasCheckConstraint("ck_compression_jobs_positive_target_size", "(target_width IS NULL OR target_width > 0) AND (target_height IS NULL OR target_height > 0)");
                         });
