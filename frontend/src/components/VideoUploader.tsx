@@ -184,7 +184,14 @@ function VideoUploader({
     }, 0)
   }
 
+  const activeTools: string[] = []
+  if (isCutting) activeTools.push('Cut')
+  if (isCompressing) activeTools.push('Compress')
+  if (isSplicing) activeTools.push('Splicer')
+  const hasActiveJobs = activeTools.length > 0
+
   function handleUploadAnother() {
+    if (hasActiveJobs) return
     reset()
     setSelectedFile(null)
     setError(null)
@@ -367,17 +374,8 @@ function VideoUploader({
             <div className="mt-2 flex flex-wrap justify-center items-center gap-3">
               <button
                 type="button"
-                disabled
-                className="border border-slate-300 bg-slate-100 px-4 py-2 font-mono text-xs text-slate-400 cursor-not-allowed opacity-60"
-                data-testid="editor-btn"
-                title="Editor feature coming soon ( •̀_•́ )"
-              >
-                Editor (coming soon)
-              </button>
-              <button
-                type="button"
                 onClick={onOpenCutter}
-                className="inline-flex items-center gap-2 bg-cyber-pink px-5 py-2 font-medium text-white hover:bg-cyber-pink-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink focus-visible:ring-offset-2 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 bg-cyber-pink px-5 py-2 font-medium text-white hover:bg-cyber-pink-hover hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#373b3e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink focus-visible:ring-offset-2 transition-all cursor-pointer"
                 data-testid="open-cutter-btn"
               >
                 {isCutting ? (
@@ -392,7 +390,7 @@ function VideoUploader({
               <button
                 type="button"
                 onClick={onOpenCompressor}
-                className="inline-flex items-center gap-2 bg-cyber-teal px-5 py-2 font-medium text-white hover:bg-cyber-cyan hover:text-cyber-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal focus-visible:ring-offset-2 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 bg-cyber-teal px-5 py-2 font-medium text-white hover:bg-cyber-cyan hover:text-cyber-dark hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#373b3e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal focus-visible:ring-offset-2 transition-all cursor-pointer"
                 data-testid="open-compressor-btn"
               >
                 {isCompressing ? (
@@ -407,7 +405,7 @@ function VideoUploader({
               <button
                 type="button"
                 onClick={onOpenSplicer}
-                className="inline-flex items-center gap-2 bg-cyber-cyan px-5 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 bg-cyber-cyan px-5 py-2 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#373b3e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-all cursor-pointer"
                 data-testid="open-splicer-btn"
               >
                 {isSplicing ? (
@@ -424,11 +422,28 @@ function VideoUploader({
             <button
               type="button"
               onClick={handleUploadAnother}
-              className="mt-1 border border-cyber-border px-4 py-1.5 font-mono text-xs text-slate-600 hover:border-slate-400 hover:text-cyber-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors"
+              disabled={hasActiveJobs}
+              aria-describedby={hasActiveJobs ? 'active-jobs-guard-msg' : undefined}
+              className="mt-1 border border-cyber-border px-4 py-1.5 font-mono text-xs text-slate-600 hover:border-slate-400 hover:text-cyber-dark disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer"
               data-testid="upload-another-btn"
             >
               Upload another video ✦
             </button>
+
+            {hasActiveJobs && (
+              <p
+                id="active-jobs-guard-msg"
+                role="status"
+                aria-live="polite"
+                className="inline-flex items-center gap-2 border border-amber-200 bg-amber-50 px-3 py-1.5 font-mono text-xs text-amber-800"
+                data-testid="active-jobs-guard-msg"
+              >
+                <span className="h-2 w-2 rounded-full bg-cyber-pink animate-pulse" aria-hidden="true" />
+                <span>
+                  Hold on! Finish active {activeTools.length === 1 ? 'job' : 'jobs'} before replacing video: {activeTools.join(', ')} (｡•́︿•̀｡)
+                </span>
+              </p>
+            )}
           </div>
         )}
 
