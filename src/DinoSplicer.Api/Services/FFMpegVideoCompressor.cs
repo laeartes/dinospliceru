@@ -268,11 +268,14 @@ public class FFMpegVideoCompressor(
             switch (request.VideoCodec)
             {
                 case VideoCodecOption.H264:
-                    args.Add($"-c:v libx264 -b:v {bitrate}k -maxrate {bitrate}k -bufsize {bufSize}k -preset {GetH264Preset(request.Preset)} -pix_fmt yuv420p");
+                    // libx264 requires matching presets between Pass 1 and Pass 2 (it applies fast-first-pass internally).
+                    args.Add($"-c:v libx264 -b:v {bitrate}k -maxrate {bitrate}k -bufsize {bufSize}k -preset {GetH264Preset(request.Preset)} -threads 0 -pix_fmt yuv420p");
                     break;
 
                 case VideoCodecOption.Vp9:
-                    args.Add($"-c:v libvpx-vp9 -b:v {bitrate}k {GetVp9SpeedArguments(request.Preset)} -pix_fmt yuv420p");
+                    // VP9 Pass 1 only collects stats, so cpu-used 4 speeds up Pass 1 without hurting Pass 2 quality.
+                    string vp9Speed = pass == 1 ? "-deadline good -cpu-used 4" : GetVp9SpeedArguments(request.Preset);
+                    args.Add($"-c:v libvpx-vp9 -b:v {bitrate}k {vp9Speed} -row-mt 1 -threads 0 -pix_fmt yuv420p");
                     break;
 
                 default:

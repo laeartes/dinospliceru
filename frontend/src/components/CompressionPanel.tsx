@@ -247,7 +247,10 @@ export default function CompressionPanel({
               <button
                 type="button"
                 disabled={sourceSizeMb <= 10}
-                onClick={() => setTargetSizeMbInput('10')}
+                onClick={() => {
+                  setTargetSizeMbInput('10')
+                  setPreset('Fast')
+                }}
                 className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-pink hover:bg-cyber-pink/10 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-all cursor-pointer"
                 data-testid="target-chip-10mb"
               >
@@ -256,7 +259,10 @@ export default function CompressionPanel({
               <button
                 type="button"
                 disabled={sourceSizeMb <= 25}
-                onClick={() => setTargetSizeMbInput('25')}
+                onClick={() => {
+                  setTargetSizeMbInput('25')
+                  setPreset('Fast')
+                }}
                 className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-teal hover:bg-cyber-teal/10 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal transition-all cursor-pointer"
                 data-testid="target-chip-25mb"
               >
@@ -264,7 +270,10 @@ export default function CompressionPanel({
               </button>
               <button
                 type="button"
-                onClick={() => setTargetSizeMbInput(String(halfSizeMb))}
+                onClick={() => {
+                  setTargetSizeMbInput(String(halfSizeMb))
+                  setPreset('Fast')
+                }}
                 className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/15 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-all cursor-pointer"
                 data-testid="target-chip-50pct"
               >

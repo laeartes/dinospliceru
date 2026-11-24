@@ -312,6 +312,8 @@ public class FFMpegVideoCompressorTests : IDisposable
 
         string pass1 = FFMpegVideoCompressor.BuildOutputArguments(request, targetVideoBitrateKbps: 1400, pass: 1, passLogPrefix: "/tmp/log");
         pass1.Should().Contain("-b:v 1400k");
+        pass1.Should().Contain("-preset medium");
+        pass1.Should().Contain("-threads 0");
         pass1.Should().Contain("-pass 1");
         pass1.Should().Contain("-passlogfile \"/tmp/log\"");
         pass1.Should().Contain("-an -f null");
@@ -320,6 +322,7 @@ public class FFMpegVideoCompressorTests : IDisposable
         string pass2 = FFMpegVideoCompressor.BuildOutputArguments(request, targetVideoBitrateKbps: 1400, pass: 2, passLogPrefix: "/tmp/log");
         pass2.Should().Contain("-map 0:a:0?");
         pass2.Should().Contain("-b:v 1400k");
+        pass2.Should().Contain("-preset medium");
         pass2.Should().Contain("-pass 2");
         pass2.Should().Contain("-c:a aac");
         pass2.Should().Contain("-b:a 128k");
