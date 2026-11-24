@@ -15,6 +15,9 @@ public class FFMpegVideoCompressor(
 ) : IVideoCompressor
 {
     private const string OutputFileBaseName = "compressed";
+    public const int MinTargetVideoBitrateKbps = 50;
+    private const int DefaultAudioBitrateKbps = 128;
+    private const double ContainerOverheadFactor = 0.90;
 
     private readonly IVideoMetadataExtractor _metadataExtractor = metadataExtractor ?? throw new ArgumentNullException(nameof(metadataExtractor));
     private readonly IJobProgressTracker _progressTracker = progressTracker ?? throw new ArgumentNullException(nameof(progressTracker));
@@ -63,23 +66,94 @@ public class FFMpegVideoCompressor(
         try
         {
             TimeSpan totalDuration = await ResolveSourceDurationAsync(sourcePath, sourceDuration, cancellationToken);
-            string outputArguments = BuildOutputArguments(request);
 
             ReportMonotonicProgress(0);
 
-            await FFMpegArguments
-                .FromFileInput(sourcePath, verifyExists: false)
-                .OutputToFile(outputPath, overwrite: true, addArguments: options => options
-                    .WithCustomArgument(outputArguments))
-                .NotifyOnProgress(percent =>
+            if (request.TargetSizeBytes is long targetSizeBytes)
+            {
+                int videoBitrateKbps = CalculateTargetVideoBitrateKbps(
+                    targetSizeBytes,
+                    totalDuration,
+                    request.AudioBitrateKbps
+                );
+
+                if (videoBitrateKbps < MinTargetVideoBitrateKbps)
                 {
-                    if (double.IsFinite(percent))
+                    throw new MediaProcessingException(
+                        "Target size is too small for this video's duration and audio bitrate."
+                    );
+                }
+
+                string passLogPrefix = Path.Combine(outputDirectory, $"{OutputFileBaseName}_passlog");
+                string nullSink = OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
+
+                try
+                {
+                    string pass1Arguments = BuildOutputArguments(
+                        request,
+                        targetVideoBitrateKbps: videoBitrateKbps,
+                        pass: 1,
+                        passLogPrefix: passLogPrefix
+                    );
+
+                    await FFMpegArguments
+                        .FromFileInput(sourcePath, verifyExists: false)
+                        .OutputToFile(nullSink, overwrite: true, addArguments: options => options
+                            .WithCustomArgument(pass1Arguments))
+                        .NotifyOnProgress(percent =>
+                        {
+                            if (double.IsFinite(percent))
+                            {
+                                ReportMonotonicProgress((int)Math.Round(percent * 0.5));
+                            }
+                        }, totalDuration)
+                        .CancellableThrough(cancellationToken)
+                        .ProcessAsynchronously();
+
+                    string pass2Arguments = BuildOutputArguments(
+                        request,
+                        targetVideoBitrateKbps: videoBitrateKbps,
+                        pass: 2,
+                        passLogPrefix: passLogPrefix
+                    );
+
+                    await FFMpegArguments
+                        .FromFileInput(sourcePath, verifyExists: false)
+                        .OutputToFile(outputPath, overwrite: true, addArguments: options => options
+                            .WithCustomArgument(pass2Arguments))
+                        .NotifyOnProgress(percent =>
+                        {
+                            if (double.IsFinite(percent))
+                            {
+                                ReportMonotonicProgress(50 + (int)Math.Round(percent * 0.5));
+                            }
+                        }, totalDuration)
+                        .CancellableThrough(cancellationToken)
+                        .ProcessAsynchronously();
+                }
+                finally
+                {
+                    await CleanupPassLogsAsync(outputDirectory, $"{OutputFileBaseName}_passlog");
+                }
+            }
+            else
+            {
+                string outputArguments = BuildOutputArguments(request);
+
+                await FFMpegArguments
+                    .FromFileInput(sourcePath, verifyExists: false)
+                    .OutputToFile(outputPath, overwrite: true, addArguments: options => options
+                        .WithCustomArgument(outputArguments))
+                    .NotifyOnProgress(percent =>
                     {
-                        ReportMonotonicProgress((int)Math.Round(percent));
-                    }
-                }, totalDuration)
-                .CancellableThrough(cancellationToken)
-                .ProcessAsynchronously();
+                        if (double.IsFinite(percent))
+                        {
+                            ReportMonotonicProgress((int)Math.Round(percent));
+                        }
+                    }, totalDuration)
+                    .CancellableThrough(cancellationToken)
+                    .ProcessAsynchronously();
+            }
 
             VideoMetadata outputMetadata = await _metadataExtractor.ExtractMetadata(
                 filePath: outputPath,
@@ -122,32 +196,124 @@ public class FFMpegVideoCompressor(
         }
     }
 
-    public static string BuildOutputArguments(CompressionRequest request)
+    public static int CalculateTargetVideoBitrateKbps(
+        long targetSizeBytes,
+        TimeSpan duration,
+        int? audioBitrateKbps
+    )
+    {
+        if (targetSizeBytes <= 0 || duration <= TimeSpan.Zero)
+        {
+            return 0;
+        }
+
+        double totalKbps = (targetSizeBytes * 8.0 / duration.TotalSeconds / 1000.0) * ContainerOverheadFactor;
+        int audioKbps = audioBitrateKbps ?? DefaultAudioBitrateKbps;
+        return (int)Math.Floor(totalKbps - audioKbps);
+    }
+
+    public static int? ResolveAutoMaxHeight(int videoBitrateKbps)
+    {
+        if (videoBitrateKbps < 250)
+        {
+            return 360;
+        }
+
+        if (videoBitrateKbps < 500)
+        {
+            return 480;
+        }
+
+        if (videoBitrateKbps < 1000)
+        {
+            return 720;
+        }
+
+        return null;
+    }
+
+    public static string BuildOutputArguments(
+        CompressionRequest request,
+        int? targetVideoBitrateKbps = null,
+        int? pass = null,
+        string? passLogPrefix = null
+    )
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateRequest(request);
 
-        List<string> args = ["-map 0:v:0", "-map 0:a?"];
+        // In target-size mode, map only the primary audio stream (0:a:0?) so multi-track recordings
+        // (e.g. OBS 6-track files) don't multiply audio bitrate and blow past the target MB budget.
+        List<string> args = pass == 1
+            ? ["-map 0:v:0"]
+            : targetVideoBitrateKbps.HasValue
+                ? ["-map 0:v:0", "-map 0:a:0?"]
+                : ["-map 0:v:0", "-map 0:a?"];
 
         if (request.TargetWidth is int width && request.TargetHeight is int height)
         {
             args.Add($"-vf scale={width.ToString(CultureInfo.InvariantCulture)}:{height.ToString(CultureInfo.InvariantCulture)}");
         }
-
-        string crf = request.Crf.ToString(CultureInfo.InvariantCulture);
-
-        switch (request.VideoCodec)
+        else if (targetVideoBitrateKbps is int autoBitrate && ResolveAutoMaxHeight(autoBitrate) is int maxHeight)
         {
-            case VideoCodecOption.H264:
-                args.Add($"-c:v libx264 -crf {crf} -preset {GetH264Preset(request.Preset)} -pix_fmt yuv420p");
-                break;
+            // Keep aspect ratio and even dimensions while capping height so libx264 doesn't hit its QP=51 floor.
+            args.Add($"-vf \"scale=-2:trunc(min({maxHeight.ToString(CultureInfo.InvariantCulture)}\\,ih)/2)*2\"");
+        }
 
-            case VideoCodecOption.Vp9:
-                args.Add($"-c:v libvpx-vp9 -crf {crf} -b:v 0 {GetVp9SpeedArguments(request.Preset)} -pix_fmt yuv420p");
-                break;
+        if (targetVideoBitrateKbps is int bitrateKbps)
+        {
+            string bitrate = bitrateKbps.ToString(CultureInfo.InvariantCulture);
+            string bufSize = (bitrateKbps * 2).ToString(CultureInfo.InvariantCulture);
 
-            default:
-                throw new ArgumentOutOfRangeException(nameof(request), request.VideoCodec, "Unsupported video codec.");
+            switch (request.VideoCodec)
+            {
+                case VideoCodecOption.H264:
+                    // libx264 requires matching presets between Pass 1 and Pass 2 (it applies fast-first-pass internally).
+                    args.Add($"-c:v libx264 -b:v {bitrate}k -maxrate {bitrate}k -bufsize {bufSize}k -preset {GetH264Preset(request.Preset)} -threads 0 -pix_fmt yuv420p");
+                    break;
+
+                case VideoCodecOption.Vp9:
+                    // VP9 Pass 1 only collects stats, so cpu-used 4 speeds up Pass 1 without hurting Pass 2 quality.
+                    string vp9Speed = pass == 1 ? "-deadline good -cpu-used 4" : GetVp9SpeedArguments(request.Preset);
+                    args.Add($"-c:v libvpx-vp9 -b:v {bitrate}k {vp9Speed} -row-mt 1 -threads 0 -pix_fmt yuv420p");
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(request), request.VideoCodec, "Unsupported video codec.");
+            }
+        }
+        else
+        {
+            string crf = request.Crf.ToString(CultureInfo.InvariantCulture);
+
+            switch (request.VideoCodec)
+            {
+                case VideoCodecOption.H264:
+                    args.Add($"-c:v libx264 -crf {crf} -preset {GetH264Preset(request.Preset)} -pix_fmt yuv420p");
+                    break;
+
+                case VideoCodecOption.Vp9:
+                    args.Add($"-c:v libvpx-vp9 -crf {crf} -b:v 0 {GetVp9SpeedArguments(request.Preset)} -pix_fmt yuv420p");
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(request), request.VideoCodec, "Unsupported video codec.");
+            }
+        }
+
+        if (pass is int passNumber)
+        {
+            args.Add($"-pass {passNumber.ToString(CultureInfo.InvariantCulture)}");
+            if (!string.IsNullOrWhiteSpace(passLogPrefix))
+            {
+                args.Add($"-passlogfile \"{passLogPrefix}\"");
+            }
+        }
+
+        if (pass == 1)
+        {
+            args.Add("-an -f null");
+            return string.Join(' ', args);
         }
 
         string audioCodec = request.Format switch
@@ -163,6 +329,10 @@ public class FFMpegVideoCompressor(
         {
             args.Add($"-b:a {audioBitrateKbps.ToString(CultureInfo.InvariantCulture)}k");
         }
+        else if (targetVideoBitrateKbps.HasValue)
+        {
+            args.Add($"-b:a {DefaultAudioBitrateKbps.ToString(CultureInfo.InvariantCulture)}k");
+        }
 
         if (request.Format == OutputContainerFormat.Mp4)
         {
@@ -170,6 +340,26 @@ public class FFMpegVideoCompressor(
         }
 
         return string.Join(' ', args);
+    }
+
+    private async Task CleanupPassLogsAsync(string outputDirectory, string filePrefix)
+    {
+        try
+        {
+            if (!Directory.Exists(outputDirectory))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.EnumerateFiles(outputDirectory, $"{filePrefix}*"))
+            {
+                await _fileSystem.DeleteFileIfExistsAsync(file, CancellationToken.None);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to clean up FFmpeg 2-pass log files in {OutputDirectory}", outputDirectory);
+        }
     }
 
     private async Task<TimeSpan> ResolveSourceDurationAsync(

@@ -13,6 +13,7 @@ export interface CompressionRequest {
   targetWidth: number | null
   targetHeight: number | null
   audioBitrateKbps: number | null
+  targetSizeBytes?: number | null
   preset: EncodingPresetOption
 }
 
@@ -24,6 +25,7 @@ export interface CompressionJobResponse {
   targetWidth: number | null
   targetHeight: number | null
   audioBitrateKbps: number | null
+  targetSizeBytes?: number | null
   preset: EncodingPresetOption
   status: CompressionJobStatus
   progressPercent: number | null
@@ -60,6 +62,7 @@ function normalizeResponse(raw: CompressionJobResponse): CompressionJobResponse 
     targetWidth: typeof raw.targetWidth === 'number' ? raw.targetWidth : null,
     targetHeight: typeof raw.targetHeight === 'number' ? raw.targetHeight : null,
     audioBitrateKbps: typeof raw.audioBitrateKbps === 'number' ? raw.audioBitrateKbps : null,
+    targetSizeBytes: typeof raw.targetSizeBytes === 'number' ? raw.targetSizeBytes : null,
     preset: raw.preset,
     status: raw.status,
     progressPercent: typeof raw.progressPercent === 'number' ? raw.progressPercent : null,

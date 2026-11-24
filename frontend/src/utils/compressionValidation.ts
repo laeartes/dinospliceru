@@ -11,6 +11,9 @@ export const MAX_H264_CRF = 51
 export const MAX_VP9_CRF = 63
 export const MIN_AUDIO_BITRATE_KBPS = 32
 export const MAX_AUDIO_BITRATE_KBPS = 512
+export const MIN_TARGET_VIDEO_BITRATE_KBPS = 50
+const DEFAULT_AUDIO_BITRATE_KBPS = 128
+const CONTAINER_OVERHEAD_FACTOR = 0.90
 
 export type ResolutionPreset = 'original' | '1080p' | '720p' | '480p' | 'custom'
 
@@ -58,6 +61,7 @@ export interface CompressionFormInput {
   customHeightInput: string
   preset: EncodingPresetOption
   audioBitrateKbps: number | null
+  targetSizeMbInput?: string
 }
 
 export type CompressionValidationResult =
@@ -79,10 +83,11 @@ function validateDimension(name: string, value: number, maxSource: number | unde
   return null
 }
 
-/** Validates compression form inputs against backend codec, CRF, resolution, and audio rules. */
+/** Validates compression form inputs against backend codec, CRF, resolution, audio, and target-size rules. */
 export function validateCompressionParameters(
   input: CompressionFormInput,
-  sourceResolution: Resolution | null
+  sourceResolution: Resolution | null,
+  sourceDurationSeconds: number | null = null
 ): CompressionValidationResult {
   if (!isCompatibleFormatCodec(input.format, input.videoCodec)) {
     return {
@@ -140,6 +145,30 @@ export function validateCompressionParameters(
     }
   }
 
+  let targetSizeBytes: number | null = null
+  const trimmedTargetMb = input.targetSizeMbInput?.trim() ?? ''
+  if (trimmedTargetMb !== '') {
+    if (!/^\d+(\.\d+)?$/.test(trimmedTargetMb) || Number(trimmedTargetMb) <= 0) {
+      return {
+        request: null,
+        error: 'Target size must be a positive number in MB (；´Д｀)',
+      }
+    }
+
+    targetSizeBytes = Math.round(Number(trimmedTargetMb) * 1024 * 1024)
+    if (sourceDurationSeconds !== null && sourceDurationSeconds > 0) {
+      const totalKbps = ((targetSizeBytes * 8) / sourceDurationSeconds / 1000) * CONTAINER_OVERHEAD_FACTOR
+      const audioKbps = input.audioBitrateKbps ?? DEFAULT_AUDIO_BITRATE_KBPS
+      const videoBitrateKbps = Math.floor(totalKbps - audioKbps)
+      if (videoBitrateKbps < MIN_TARGET_VIDEO_BITRATE_KBPS) {
+        return {
+          request: null,
+          error: "Target size is too small for this video's duration and audio bitrate (；´Д｀)",
+        }
+      }
+    }
+  }
+
   return {
     request: {
       format: input.format,
@@ -148,6 +177,7 @@ export function validateCompressionParameters(
       targetWidth,
       targetHeight,
       audioBitrateKbps: input.audioBitrateKbps,
+      targetSizeBytes,
       preset: input.preset,
     },
     error: null,

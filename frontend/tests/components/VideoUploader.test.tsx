@@ -649,7 +649,7 @@ describe('VideoUploader', () => {
     vi.useRealTimers()
   })
 
-  it('renders disabled Editor button and clickable Splicer button when video is Ready', async () => {
+  it('renders Cut, Compress, and Splicer buttons without Editor placeholder when video is Ready', async () => {
     vi.useFakeTimers()
     interface SimpleXhr {
       status: number
@@ -695,8 +695,17 @@ describe('VideoUploader', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
+    const onOpenCutter = vi.fn()
+    const onOpenCompressor = vi.fn()
     const onOpenSplicer = vi.fn()
-    render(<VideoUploader config={defaultConfig} onOpenSplicer={onOpenSplicer} />)
+    render(
+      <VideoUploader
+        config={defaultConfig}
+        onOpenCutter={onOpenCutter}
+        onOpenCompressor={onOpenCompressor}
+        onOpenSplicer={onOpenSplicer}
+      />
+    )
 
     const input = screen.getByTestId('file-input')
     fireEvent.change(input, { target: { files: [createFile('video.mp4', 'video/mp4')] } })
@@ -715,14 +724,108 @@ describe('VideoUploader', () => {
       }
     })
 
-    const editorBtn = screen.getByTestId('editor-btn')
-    expect(editorBtn).toHaveTextContent(/Editor \(coming soon\)/i)
-    expect(editorBtn).toBeDisabled()
+    expect(screen.queryByTestId('editor-btn')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('open-cutter-btn'))
+    expect(onOpenCutter).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByTestId('open-compressor-btn'))
+    expect(onOpenCompressor).toHaveBeenCalledTimes(1)
 
     const splicerBtn = screen.getByTestId('open-splicer-btn')
     expect(splicerBtn).toHaveTextContent(/Splicer/i)
     fireEvent.click(splicerBtn)
     expect(onOpenSplicer).toHaveBeenCalledTimes(1)
+
+    expect(screen.getByTestId('upload-another-btn')).toBeEnabled()
+    expect(screen.queryByTestId('active-jobs-guard-msg')).not.toBeInTheDocument()
+
+    vi.useRealTimers()
+  })
+
+  it('disables Upload another video button with active tool message while any tool is processing', async () => {
+    vi.useFakeTimers()
+    interface SimpleXhr {
+      status: number
+      responseText: string
+      upload: { onprogress: null }
+      onload: (() => void) | null
+      open: () => void
+      send: () => void
+    }
+    let capturedXhr: SimpleXhr | null = null
+
+    vi.stubGlobal(
+      'XMLHttpRequest',
+      vi.fn(function () {
+        const mock: SimpleXhr = {
+          status: 200,
+          responseText: '',
+          upload: { onprogress: null },
+          onload: null,
+          open: vi.fn(),
+          send: vi.fn(),
+        }
+        capturedXhr = mock
+        return mock
+      })
+    )
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          id: 'ready-guarded-vid',
+          fileName: 'clip.mp4',
+          contentType: 'video/mp4',
+          sizeBytes: 1024,
+          durationSeconds: 15.0,
+          resolution: { width: 1280, height: 720 },
+          codec: 'h264',
+          status: 'Ready',
+          createdAt: '2026-10-11T12:00:00Z',
+        }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { rerender } = render(
+      <VideoUploader config={defaultConfig} isCutting={true} isCompressing={false} isSplicing={false} />
+    )
+
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [createFile('clip.mp4', 'video/mp4')] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    await act(async () => {
+      if (capturedXhr) {
+        capturedXhr.status = 201
+        capturedXhr.responseText = JSON.stringify({
+          id: 'ready-guarded-vid',
+          fileName: 'clip.mp4',
+          sizeBytes: 1024,
+          status: 'Uploaded',
+        })
+        capturedXhr.onload?.()
+      }
+    })
+
+    const uploadAnotherBtn = screen.getByTestId('upload-another-btn')
+    expect(uploadAnotherBtn).toBeDisabled()
+    expect(uploadAnotherBtn).toHaveAttribute('aria-describedby', 'active-jobs-guard-msg')
+    expect(screen.getByTestId('active-jobs-guard-msg')).toHaveTextContent(/Cut/)
+
+    rerender(
+      <VideoUploader config={defaultConfig} isCutting={true} isCompressing={true} isSplicing={true} />
+    )
+    expect(screen.getByTestId('upload-another-btn')).toBeDisabled()
+    expect(screen.getByTestId('active-jobs-guard-msg')).toHaveTextContent(/Cut, Compress, Splicer/)
+
+    rerender(
+      <VideoUploader config={defaultConfig} isCutting={false} isCompressing={false} isSplicing={false} />
+    )
+    expect(screen.getByTestId('upload-another-btn')).toBeEnabled()
+    expect(screen.queryByTestId('active-jobs-guard-msg')).not.toBeInTheDocument()
 
     vi.useRealTimers()
   })

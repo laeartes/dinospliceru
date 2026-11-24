@@ -43,6 +43,7 @@ public class CompressionController(
             TargetWidth = request.TargetWidth,
             TargetHeight = request.TargetHeight,
             AudioBitrateKbps = request.AudioBitrateKbps,
+            TargetSizeBytes = request.TargetSizeBytes,
             Preset = request.Preset,
         };
         db.CompressionJobs.Add(job);

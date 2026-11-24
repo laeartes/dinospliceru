@@ -35,6 +35,7 @@ describe('compressionValidation', () => {
       targetWidth: null,
       targetHeight: null,
       audioBitrateKbps: 128,
+      targetSizeBytes: null,
       preset: 'Medium',
     })
   })
@@ -88,5 +89,24 @@ describe('compressionValidation', () => {
       percentSaved: 60,
     })
     expect(calculateSizeSavings(0, 100)).toEqual({ savedBytes: 0, percentSaved: 0 })
+  })
+
+  it('validates targetSizeMbInput and converts to targetSizeBytes', () => {
+    const valid = validateCompressionParameters({ ...baseInput, targetSizeMbInput: '8' }, sourceRes, 41.3)
+    expect(valid.error).toBeNull()
+    expect(valid.request?.targetSizeBytes).toBe(8 * 1024 * 1024)
+
+    expect(
+      validateCompressionParameters({ ...baseInput, targetSizeMbInput: '0' }, sourceRes, 41.3).error
+    ).toMatch(/positive number/i)
+
+    expect(
+      validateCompressionParameters({ ...baseInput, targetSizeMbInput: 'abc' }, sourceRes, 41.3).error
+    ).toMatch(/positive number/i)
+
+    // 0.1MB over 120s leaves less than 50kbps video bitrate after 128kbps audio
+    expect(
+      validateCompressionParameters({ ...baseInput, targetSizeMbInput: '0.1' }, sourceRes, 120).error
+    ).toMatch(/too small/i)
   })
 })

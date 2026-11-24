@@ -14,7 +14,8 @@ public record CompressionJobResponse(
     string? Error,
     string? OutputFileName,
     double? OutputDurationSeconds,
-    long? OutputSizeBytes
+    long? OutputSizeBytes,
+    long? TargetSizeBytes = null
 )
 {
     public static CompressionJobResponse FromJob(CompressionJob job, int? progressPercent = null)
@@ -33,7 +34,8 @@ public record CompressionJobResponse(
             job.ErrorMessage,
             job.OutputFileName,
             job.OutputDurationSeconds,
-            job.OutputSizeBytes
+            job.OutputSizeBytes,
+            job.TargetSizeBytes
         );
     }
 }

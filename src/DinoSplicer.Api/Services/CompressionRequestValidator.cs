@@ -17,6 +17,7 @@ public class CompressionRequestValidator : ICompressionRequestValidator
         ValidateCrf(request.VideoCodec, request.Crf);
         ValidateResolution(request.TargetWidth, request.TargetHeight, video.Resolution);
         ValidateAudioBitrate(request.AudioBitrateKbps);
+        ValidateTargetSize(request.TargetSizeBytes, request.AudioBitrateKbps, video);
     }
 
     private static void ValidateEnums(CompressionRequest request)
@@ -128,6 +129,36 @@ public class CompressionRequestValidator : ICompressionRequestValidator
             throw new DomainValidationException(
                 $"AudioBitrateKbps must be between {CompressionJob.MinAudioBitrateKbps} and {CompressionJob.MaxAudioBitrateKbps} kbps.",
                 ApiErrorCodes.InvalidCompressionAudioBitrate);
+        }
+    }
+
+    private static void ValidateTargetSize(long? targetSizeBytes, int? audioBitrateKbps, Video video)
+    {
+        if (targetSizeBytes is null)
+        {
+            return;
+        }
+
+        if (targetSizeBytes <= 0)
+        {
+            throw new DomainValidationException(
+                "TargetSizeBytes must be a positive number.",
+                ApiErrorCodes.InvalidCompressionTargetSize);
+        }
+
+        if (video.DurationSeconds is double durationSeconds and > 0)
+        {
+            int videoBitrateKbps = FFMpegVideoCompressor.CalculateTargetVideoBitrateKbps(
+                targetSizeBytes.Value,
+                TimeSpan.FromSeconds(durationSeconds),
+                audioBitrateKbps);
+
+            if (videoBitrateKbps < FFMpegVideoCompressor.MinTargetVideoBitrateKbps)
+            {
+                throw new DomainValidationException(
+                    "TargetSizeBytes is too small for this video's duration and audio bitrate.",
+                    ApiErrorCodes.InvalidCompressionTargetSize);
+            }
         }
     }
 }

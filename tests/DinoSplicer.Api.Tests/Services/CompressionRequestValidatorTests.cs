@@ -203,6 +203,29 @@ public class CompressionRequestValidatorTests
     }
 
     [Fact]
+    public void Validate_ValidTargetSizeBytes_DoesNotThrow()
+    {
+        CompressionRequest request = CreateRequest(audioBitrateKbps: 128);
+        request.TargetSizeBytes = 8L * 1024 * 1024;
+
+        Action act = () => _validator.Validate(request, CreateVideo());
+
+        act.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1024)]
+    [InlineData(100_000)] // too small for 120s @ 128kbps audio
+    public void Validate_InvalidTargetSizeBytes_ThrowsInvalidCompressionTargetSize(long targetSizeBytes)
+    {
+        CompressionRequest request = CreateRequest(audioBitrateKbps: 128);
+        request.TargetSizeBytes = targetSizeBytes;
+
+        ShouldReject(request, CreateVideo(), ApiErrorCodes.InvalidCompressionTargetSize);
+    }
+
+    [Fact]
     public void ServiceProvider_RegisteredWithoutFactory_ResolvesCompressionRequestValidator()
     {
         ServiceCollection services = new();

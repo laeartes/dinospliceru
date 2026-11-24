@@ -114,6 +114,7 @@ public class CompressionProcessingWorker(
             TargetWidth = job.TargetWidth,
             TargetHeight = job.TargetHeight,
             AudioBitrateKbps = job.AudioBitrateKbps,
+            TargetSizeBytes = job.TargetSizeBytes,
             Preset = job.Preset,
         };
 

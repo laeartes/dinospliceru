@@ -70,7 +70,7 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('renders Ready overview with Editor and Splicer buttons, and preserves Splicer inputs across navigation', async () => {
+  it('renders Ready overview with workspace tabs and tool buttons, and preserves Splicer inputs across navigation', async () => {
     class MockXHR {
       upload = { onprogress: null }
       status = 201
@@ -111,15 +111,16 @@ describe('App', () => {
     render(<App />)
 
     expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('workspace-tablist')).not.toBeInTheDocument()
 
     const input = screen.getByTestId('file-input')
     fireEvent.change(input, { target: { files: [new File(['x'], 'test.mkv', { type: 'video/x-matroska' })] } })
     fireEvent.click(screen.getByTestId('confirm-upload'))
 
-    // Overview shows Ready status with Editor and Splicer buttons
+    // Overview shows Ready status with workspace tabs and Cut/Compress/Splicer buttons
     const splicerBtn = await screen.findByTestId('open-splicer-btn')
-    const editorBtn = screen.getByTestId('editor-btn')
-    expect(editorBtn).toBeDisabled()
+    expect(await screen.findByTestId('workspace-tablist')).toBeInTheDocument()
+    expect(screen.queryByTestId('editor-btn')).not.toBeInTheDocument()
     expect(splicerBtn).toBeInTheDocument()
 
     // Click Splicer button to open Splicer screen
@@ -222,7 +223,10 @@ describe('App', () => {
     expect(overviewSplicerBtn).toHaveTextContent('Splicer (processing...) ( •̀_•́ ) ✦')
   })
 
-  it('opens CutPanel from Ready overview and returns cleanly via Back button', async () => {
+  it('opens CutPanel from Ready overview with local video preview and returns cleanly via Back button', async () => {
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:local-preview')
+    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
     class MockXHR {
       upload = { onprogress: null }
       status = 201
@@ -272,6 +276,7 @@ describe('App', () => {
     fireEvent.click(cutterBtn)
 
     expect(screen.getByTestId('cut-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('cut-video-preview')).toHaveAttribute('src', 'blob:local-preview')
     expect(screen.getByTestId('cut-start-input')).toHaveValue('00:00.0')
     expect(screen.getByTestId('cut-end-input')).toHaveValue('00:30.0')
 
@@ -283,5 +288,194 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('compression-back-btn'))
     expect(screen.getByTestId('open-compressor-btn')).toBeInTheDocument()
+
+    createObjectUrlSpy.mockRestore()
+    revokeObjectUrlSpy.mockRestore()
+  })
+
+  it('switches cleanly between Overview, Cutter, Compressor, and Splicer via workspace tabs while preserving all panel states', async () => {
+    class MockXHR {
+      upload = { onprogress: null }
+      status = 201
+      responseText = JSON.stringify({
+        id: 'app-nav-vid',
+        fileName: 'workspace.mkv',
+        sizeBytes: 2048,
+        status: 'Uploaded',
+      })
+      onload: (() => void) | null = null
+      open() {}
+      send() {
+        setTimeout(() => this.onload?.(), 0)
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', MockXHR)
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okResponse())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'app-nav-vid',
+            fileName: 'workspace.mkv',
+            contentType: 'video/x-matroska',
+            sizeBytes: 2048,
+            durationSeconds: 45.0,
+            resolution: { width: 1920, height: 1080 },
+            codec: 'h264',
+            status: 'Ready',
+            createdAt: '2026-11-24T10:00:00Z',
+          }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [new File(['x'], 'workspace.mkv', { type: 'video/x-matroska' })] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    const overviewTab = await screen.findByTestId('workspace-tab-overview')
+    const cutterTab = screen.getByTestId('workspace-tab-cutter')
+    const compressorTab = screen.getByTestId('workspace-tab-compressor')
+    const splicerTab = screen.getByTestId('workspace-tab-splicer')
+
+    expect(overviewTab).toHaveAttribute('aria-selected', 'true')
+
+    // Keyboard arrow navigation from Overview -> Cut -> Compress -> Splice
+    fireEvent.keyDown(overviewTab, { key: 'ArrowRight' })
+    expect(cutterTab).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(cutterTab)
+    fireEvent.change(screen.getByTestId('cut-start-input'), { target: { value: '00:05.0' } })
+
+    fireEvent.keyDown(cutterTab, { key: 'ArrowRight' })
+    expect(compressorTab).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(compressorTab)
+    fireEvent.click(screen.getByTestId('toggle-advanced-btn'))
+    fireEvent.change(screen.getByTestId('crf-input'), { target: { value: '28' } })
+
+    fireEvent.keyDown(compressorTab, { key: 'ArrowRight' })
+    expect(splicerTab).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(splicerTab)
+    fireEvent.change(screen.getByTestId('splice-value-input'), { target: { value: '15' } })
+
+    // Home returns to Overview, End jumps to Splice
+    fireEvent.keyDown(splicerTab, { key: 'Home' })
+    expect(overviewTab).toHaveAttribute('aria-selected', 'true')
+    expect(document.activeElement).toBe(overviewTab)
+
+    // Switch back to each tool via clicks and verify preserved inputs
+    fireEvent.click(cutterTab)
+    expect(screen.getByTestId('cut-start-input')).toHaveValue('00:05.0')
+
+    fireEvent.click(compressorTab)
+    expect(screen.getByTestId('crf-input')).toHaveValue('28')
+
+    fireEvent.click(splicerTab)
+    expect(screen.getByTestId('splice-value-input')).toHaveValue('15')
+  })
+
+  it('disables Upload another video while any tool reports active processing and displays active tab indicator', async () => {
+    class MockXHR {
+      upload = { onprogress: null }
+      status = 201
+      responseText = JSON.stringify({
+        id: 'app-guard-vid',
+        fileName: 'guard.mkv',
+        sizeBytes: 2048,
+        status: 'Uploaded',
+      })
+      onload: (() => void) | null = null
+      open() {}
+      send() {
+        setTimeout(() => this.onload?.(), 0)
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', MockXHR)
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(okResponse())
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            id: 'app-guard-vid',
+            fileName: 'guard.mkv',
+            contentType: 'video/x-matroska',
+            sizeBytes: 2048,
+            durationSeconds: 30.0,
+            resolution: { width: 1280, height: 720 },
+            codec: 'h264',
+            status: 'Ready',
+            createdAt: '2026-11-24T10:00:00Z',
+          }),
+      })
+      // POST /api/videos/{id}/cut
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: () =>
+          Promise.resolve({
+            jobId: 'cut-job-1',
+            sourceVideoId: 'app-guard-vid',
+            startSeconds: 0,
+            endSeconds: 10,
+            mode: 'FastCopy',
+            status: 'Pending',
+            progressPercent: 10,
+            outputFileName: null,
+            outputDurationSeconds: null,
+            outputSizeBytes: null,
+            errorMessage: null,
+            createdAt: '2026-11-24T10:01:00Z',
+          }),
+      })
+      // GET /api/cut-jobs/{jobId}
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            jobId: 'cut-job-1',
+            sourceVideoId: 'app-guard-vid',
+            startSeconds: 0,
+            endSeconds: 10,
+            mode: 'FastCopy',
+            status: 'Processing',
+            progressPercent: 40,
+            outputFileName: null,
+            outputDurationSeconds: null,
+            outputSizeBytes: null,
+            errorMessage: null,
+            createdAt: '2026-11-24T10:01:00Z',
+          }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+
+    expect(await screen.findByRole('region', { name: /video uploader/i })).toBeInTheDocument()
+    const input = screen.getByTestId('file-input')
+    fireEvent.change(input, { target: { files: [new File(['x'], 'guard.mkv', { type: 'video/x-matroska' })] } })
+    fireEvent.click(screen.getByTestId('confirm-upload'))
+
+    const uploadAnotherBtn = await screen.findByTestId('upload-another-btn')
+    expect(uploadAnotherBtn).toBeEnabled()
+
+    // Start a Cut job
+    fireEvent.click(screen.getByTestId('open-cutter-btn'))
+    fireEvent.click(screen.getByTestId('start-cut-btn'))
+
+    expect(await screen.findByTestId('cut-progress')).toBeInTheDocument()
+    expect(screen.getByTestId('workspace-tab-cutter-active')).toBeInTheDocument()
+
+    // Return to Overview: Upload another video button must be disabled with clear message
+    fireEvent.click(screen.getByTestId('workspace-tab-overview'))
+    expect(screen.getByTestId('upload-another-btn')).toBeDisabled()
+    expect(screen.getByTestId('active-jobs-guard-msg')).toHaveTextContent(/Cut/)
   })
 })
