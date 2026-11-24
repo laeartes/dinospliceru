@@ -14,6 +14,7 @@ import {
   MIN_CRF,
   RESOLUTION_PRESET_DIMENSIONS,
   calculateSizeSavings,
+  estimateCompressionForTargetSize,
   getCompatibleCodec,
   getCrfQualityHint,
   getMaxCrf,
@@ -78,6 +79,8 @@ export default function CompressionPanel({
   )
   const [preset, setPreset] = useState<EncodingPresetOption>('Medium')
   const [audioBitrateKbps, setAudioBitrateKbps] = useState<number | null>(128)
+  const [targetSizeMbInput, setTargetSizeMbInput] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const { compressionState, startCompression, reset, retry } = useCompressionJob(video.id)
   const { showError } = useToast()
@@ -115,11 +118,40 @@ export default function CompressionPanel({
     video.resolution
   )
 
+  const sourceSizeMb = video.sizeBytes / (1024 * 1024)
+  const halfSizeMb = Math.max(0.5, Math.round(sourceSizeMb * 5) / 10)
+  const parsedTargetMb =
+    /^\d+(\.\d+)?$/.test(targetSizeMbInput.trim()) ? Number(targetSizeMbInput.trim()) : null
+  const targetSizeInvalid =
+    targetSizeMbInput.trim() !== '' && (parsedTargetMb === null || parsedTargetMb <= 0)
+
+  function applyTargetSize(rawValue: string, codecOverride?: VideoCodecOption) {
+    setTargetSizeMbInput(rawValue)
+    const trimmed = rawValue.trim()
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return
+    const targetMb = Number(trimmed)
+    const estimate = estimateCompressionForTargetSize(
+      targetMb,
+      video.sizeBytes,
+      video.resolution,
+      codecOverride ?? videoCodec
+    )
+    if (!estimate) return
+    setCrfInput(String(estimate.crf))
+    setResolutionPreset(estimate.resolutionPreset)
+    setAudioBitrateKbps(estimate.audioBitrateKbps)
+    setPreset(estimate.preset)
+  }
+
   function handleFormatChange(nextFormat: OutputContainerFormat) {
     const nextCodec = getCompatibleCodec(nextFormat)
     const nextMaxCrf = getMaxCrf(nextCodec)
     setFormat(nextFormat)
     setVideoCodec(nextCodec)
+    if (parsedTargetMb !== null && parsedTargetMb > 0) {
+      applyTargetSize(targetSizeMbInput, nextCodec)
+      return
+    }
     if (/^\d+$/.test(crfInput.trim()) && Number(crfInput.trim()) > nextMaxCrf) {
       setCrfInput(String(nextMaxCrf))
     }
@@ -193,6 +225,116 @@ export default function CompressionPanel({
           className="flex flex-col items-center gap-5"
           data-testid="compression-form"
         >
+          {/* Quick Target Size Estimator (est. MB) */}
+          <div className="w-full max-w-md border-2 border-cyber-border bg-slate-50/80 p-4 text-left">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <label
+                htmlFor="compress-target-size-input"
+                className="text-xs font-mono font-semibold text-cyber-dark uppercase tracking-wide"
+              >
+                <span className="text-cyber-pink mr-1" aria-hidden="true">♡</span>
+                Target Size (approx. MB)
+              </label>
+              <span className="font-mono text-[11px] text-slate-400">
+                Source: {formatFileSize(video.sizeBytes)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                id="compress-target-size-input"
+                type="text"
+                inputMode="decimal"
+                value={targetSizeMbInput}
+                onChange={(e) => applyTargetSize(e.target.value)}
+                placeholder={`e.g. ${halfSizeMb}`}
+                className="w-full border-2 border-cyber-border bg-white px-3 py-2 font-mono text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors"
+                data-testid="target-size-input"
+              />
+              <span className="border-2 border-cyber-border bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-500">
+                MB
+              </span>
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap gap-2" role="group" aria-label="Quick target size presets">
+              <button
+                type="button"
+                disabled={sourceSizeMb <= 8}
+                onClick={() => applyTargetSize('8')}
+                className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-pink hover:bg-cyber-pink/10 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-all cursor-pointer"
+                data-testid="target-chip-8mb"
+              >
+                ♡ 8MB (Discord)
+              </button>
+              <button
+                type="button"
+                disabled={sourceSizeMb <= 25}
+                onClick={() => applyTargetSize('25')}
+                className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-teal hover:bg-cyber-teal/10 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal transition-all cursor-pointer"
+                data-testid="target-chip-25mb"
+              >
+                ✧ 25MB
+              </button>
+              <button
+                type="button"
+                onClick={() => applyTargetSize(String(halfSizeMb))}
+                className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/15 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-all cursor-pointer"
+                data-testid="target-chip-50pct"
+              >
+                ★ 50% ({halfSizeMb}MB)
+              </button>
+            </div>
+
+            {targetSizeInvalid && (
+              <p className="mt-2 font-mono text-xs text-red-600" role="alert" data-testid="target-size-error">
+                Enter a positive MB number (；´Д｀)
+              </p>
+            )}
+
+            <div
+              className="mt-3 border border-dashed border-cyber-border bg-white px-3 py-2 font-mono text-[11px] text-slate-600"
+              data-testid="compression-active-summary"
+            >
+              <span className="text-cyber-pink font-semibold mr-1" aria-hidden="true">✦</span>
+              <span>
+                {parsedTargetMb !== null && parsedTargetMb > 0 ? 'Auto-picked: ' : 'Active: '}
+                {format.toUpperCase()} &middot; CRF {crfInput.trim() || '—'} &middot;{' '}
+                {resolutionPreset === 'original' ? 'Original' : resolutionPreset} &middot;{' '}
+                {audioBitrateKbps === null ? 'Original audio' : `${audioBitrateKbps} kbps`} &middot; {preset}{' '}
+                <span className="text-cyber-pink">(｡•̀ᴗ-)✧</span>
+              </span>
+            </div>
+            <p className="mt-1.5 font-mono text-[10px] text-slate-400">
+              Best-effort CRF estimate — actual size varies with motion &amp; detail (´｡• ᵕ •｡`)
+            </p>
+          </div>
+
+          {/* Collapsible Advanced Settings Toggle */}
+          <div className="w-full max-w-md text-left">
+            <button
+              type="button"
+              aria-expanded={showAdvanced}
+              aria-controls="compression-advanced-settings"
+              onClick={() => setShowAdvanced((prev) => !prev)}
+              className="flex w-full items-center justify-between border border-dashed border-cyber-border bg-white px-3 py-2 font-mono text-xs text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer"
+              data-testid="toggle-advanced-btn"
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="text-cyber-pink" aria-hidden="true">✧</span>
+                <span>Advanced settings (codec, resolution, CRF, speed, audio)</span>
+              </span>
+              <span className="text-slate-500" aria-hidden="true">
+                {showAdvanced ? '▴' : '▾'}
+              </span>
+            </button>
+          </div>
+
+          {showAdvanced && (
+            <div
+              id="compression-advanced-settings"
+              className="flex w-full max-w-md flex-col items-center gap-5 border border-cyber-border bg-slate-50/40 p-4"
+              data-testid="compression-advanced-settings"
+            >
           {/* Container Format & Codec */}
           <div className="w-full max-w-md text-left">
             <p className="block text-xs font-mono text-slate-600 mb-2 uppercase tracking-wide">
@@ -399,6 +541,8 @@ export default function CompressionPanel({
               </p>
             </div>
           </div>
+            </div>
+          )}
 
           {validation.error && (
             <p className="text-sm text-red-600 font-mono" role="alert" data-testid="compression-validation-error">
@@ -408,8 +552,8 @@ export default function CompressionPanel({
 
           <button
             type="submit"
-            disabled={validation.error !== null}
-            className="mt-1 bg-cyber-cyan px-6 py-2.5 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-colors cursor-pointer"
+            disabled={validation.error !== null || targetSizeInvalid}
+            className="mt-1 bg-cyber-cyan px-6 py-2.5 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#373b3e] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-all cursor-pointer"
             data-testid="start-compression-btn"
           >
             Compress Video (｡•̀ᴗ-)✧ ✦

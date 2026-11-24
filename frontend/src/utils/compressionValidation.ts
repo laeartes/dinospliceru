@@ -164,3 +164,60 @@ export function calculateSizeSavings(
   const percentSaved = Math.round((savedBytes / originalBytes) * 1000) / 10
   return { savedBytes, percentSaved }
 }
+
+export interface TargetSizeEstimate {
+  crf: number
+  resolutionPreset: Exclude<ResolutionPreset, 'custom'>
+  audioBitrateKbps: number
+  preset: EncodingPresetOption
+}
+
+/**
+ * Estimates CRF, resolution downscale, and audio bitrate to roughly match a target size in MB.
+ * Because CRF is content-dependent, the resulting file size is a best-effort approximation.
+ */
+export function estimateCompressionForTargetSize(
+  targetSizeMb: number,
+  sourceSizeBytes: number,
+  sourceResolution: Resolution | null,
+  codec: VideoCodecOption
+): TargetSizeEstimate | null {
+  if (!Number.isFinite(targetSizeMb) || targetSizeMb <= 0 || sourceSizeBytes <= 0) {
+    return null
+  }
+
+  const targetBytes = targetSizeMb * 1024 * 1024
+  const ratio = Math.min(1, targetBytes / sourceSizeBytes)
+
+  // ~+6 CRF roughly halves bitrate for H.264 / VP9.
+  const baseCrf = codec === 'H264' ? 23 : 28
+  const maxEstimatedCrf = codec === 'H264' ? 46 : 58
+  const crfDelta = ratio < 1 ? Math.round(-6 * Math.log2(ratio)) : 0
+  const crf = Math.min(maxEstimatedCrf, Math.max(18, baseCrf + crfDelta))
+
+  let resolutionPreset: Exclude<ResolutionPreset, 'custom'> = 'original'
+  if (
+    ratio < 0.15 &&
+    sourceResolution &&
+    (sourceResolution.width > 854 || sourceResolution.height > 480)
+  ) {
+    resolutionPreset = '480p'
+  } else if (
+    ratio < 0.35 &&
+    sourceResolution &&
+    (sourceResolution.width > 1280 || sourceResolution.height > 720)
+  ) {
+    resolutionPreset = '720p'
+  }
+
+  let audioBitrateKbps = 128
+  if (ratio < 0.15) {
+    audioBitrateKbps = 64
+  } else if (ratio < 0.35) {
+    audioBitrateKbps = 96
+  }
+
+  const preset: EncodingPresetOption = ratio < 0.35 ? 'Slow' : 'Medium'
+
+  return { crf, resolutionPreset, audioBitrateKbps, preset }
+}
