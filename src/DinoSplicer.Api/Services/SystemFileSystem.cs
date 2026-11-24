@@ -53,4 +53,21 @@ public class SystemFileSystem : IFileSystem
             }
         }, cancellationToken);
     }
+
+    public Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => File.Exists(filePath), cancellationToken);
+    }
+
+    public Task<bool> DirectoryHasEntriesAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => Directory.Exists(directoryPath) && Directory.EnumerateFileSystemEntries(directoryPath).Any(), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<string>> EnumerateFilesAsync(string directoryPath, string searchPattern, CancellationToken cancellationToken = default)
+    {
+        return Task.Run<IReadOnlyList<string>>(() =>
+            Directory.Exists(directoryPath) ? [.. Directory.EnumerateFiles(directoryPath, searchPattern)] : [],
+            cancellationToken);
+    }
 }

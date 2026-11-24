@@ -9,7 +9,7 @@ namespace DinoSplicer.Api.Tests.Services;
 
 public class FFMpegVideoSplicerTests : IDisposable
 {
-    private readonly FFMpegVideoSplicer _splicer = new();
+    private readonly FFMpegVideoSplicer _splicer = new(new SystemFileSystem());
     private readonly string _outputDirectory = Path.Combine(Path.GetTempPath(), "dinosplicer-tests", Guid.NewGuid().ToString("N"));
 
     public void Dispose()
@@ -104,6 +104,7 @@ public class FFMpegVideoSplicerTests : IDisposable
     public void ServiceProvider_RegisteredWithoutFactory_ResolvesFFMpegVideoSplicer()
     {
         ServiceCollection services = new();
+        services.AddSingleton<IFileSystem, SystemFileSystem>();
         services.AddSingleton<IVideoSplicer, FFMpegVideoSplicer>();
         using ServiceProvider provider = services.BuildServiceProvider();
 

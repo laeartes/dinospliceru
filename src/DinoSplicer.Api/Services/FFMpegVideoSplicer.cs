@@ -6,8 +6,9 @@ using FFMpegCore;
 
 namespace DinoSplicer.Api.Services;
 
-public class FFMpegVideoSplicer : IVideoSplicer
+public class FFMpegVideoSplicer(IFileSystem fileSystem) : IVideoSplicer
 {
+    private readonly IFileSystem _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
     // Each packet also costs an entry in the container's index (about 15 bytes in MP4). On low-bitrate videos,
     // where packets are only a few hundred bytes, that adds up to several percent of the file.
     private const int PacketOverheadBytes = 16;
@@ -26,7 +27,7 @@ public class FFMpegVideoSplicer : IVideoSplicer
         CancellationToken cancellationToken = default
     )
     {
-        PrepareOutputDirectory(outputDirectory, overwriteExisting);
+        await PrepareOutputDirectoryAsync(outputDirectory, overwriteExisting, cancellationToken);
 
         string segmentArgument = mode switch
         {
@@ -50,7 +51,7 @@ public class FFMpegVideoSplicer : IVideoSplicer
             .ProcessAsynchronously();
 
         List<SpliceSegment> segments = await ReadSegmentListAsync(listPath, outputDirectory, cancellationToken);
-        File.Delete(listPath);
+        await _fileSystem.DeleteFileIfExistsAsync(listPath, cancellationToken);
 
         if (mode == SpliceMode.BySize && segments.Any(s => s.SizeBytes > value))
         {
@@ -122,7 +123,7 @@ public class FFMpegVideoSplicer : IVideoSplicer
             : $"-segment_time {FormatSeconds(packets.Max(p => p.Time) + 1)}";
     }
 
-    private static async Task<List<SpliceSegment>> ReadSegmentListAsync(
+    private async Task<List<SpliceSegment>> ReadSegmentListAsync(
         string listPath,
         string outputDirectory,
         CancellationToken cancellationToken
@@ -136,26 +137,23 @@ public class FFMpegVideoSplicer : IVideoSplicer
             string[] fields = line.Split(',');
             string filePath = Path.Combine(outputDirectory, fields[0]);
             double duration = double.Parse(fields[2], CultureInfo.InvariantCulture) - double.Parse(fields[1], CultureInfo.InvariantCulture);
+            long sizeBytes = await _fileSystem.GetFileLengthAsync(filePath, cancellationToken);
 
-            segments.Add(new SpliceSegment(segments.Count + 1, filePath, duration, new FileInfo(filePath).Length));
+            segments.Add(new SpliceSegment(segments.Count + 1, filePath, duration, sizeBytes));
         }
 
         return segments;
     }
 
-    private static void PrepareOutputDirectory(string outputDirectory, bool overwriteExisting)
+    private async Task PrepareOutputDirectoryAsync(string outputDirectory, bool overwriteExisting, CancellationToken cancellationToken)
     {
-        if (Directory.Exists(outputDirectory))
+        if (!overwriteExisting && await _fileSystem.DirectoryHasEntriesAsync(outputDirectory, cancellationToken))
         {
-            if (!overwriteExisting && Directory.EnumerateFileSystemEntries(outputDirectory).Any())
-            {
-                throw new IOException($"The output directory '{outputDirectory}' already contains files.");
-            }
-
-            Directory.Delete(outputDirectory, recursive: true);
+            throw new IOException($"The output directory '{outputDirectory}' already contains files.");
         }
 
-        Directory.CreateDirectory(outputDirectory);
+        await _fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, cancellationToken);
+        await _fileSystem.CreateDirectoryIfNotExistsAsync(outputDirectory, cancellationToken);
     }
 
     private static string FormatSeconds(double seconds)

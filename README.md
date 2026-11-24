@@ -115,6 +115,9 @@ npm test
 # Run tests once (non-watch mode, useful for CI)
 npm run test:run
 
+# Run tests with code coverage (Linux, macOS, Windows)
+npm run test:coverage
+
 # Lint check
 npm run lint
 ```
@@ -135,8 +138,11 @@ dotnet run --project src/DinoSplicer.Api
 # Run tests
 dotnet test
 
+# Run tests with code coverage excluding EF Migrations (Linux, macOS, Windows)
+dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+
 # Format check
-dotnet format
+dotnet format --verify-no-changes
 ```
 ### Database (PostgreSQL)
 

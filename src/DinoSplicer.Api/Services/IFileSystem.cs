@@ -12,4 +12,10 @@ public interface IFileSystem
     Task DeleteDirectoryRecursiveAsync(string directoryPath, CancellationToken cancellationToken = default);
 
     Task DeleteDirectoryIfEmptyAsync(string directoryPath, CancellationToken cancellationToken = default);
+
+    Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default);
+
+    Task<bool> DirectoryHasEntriesAsync(string directoryPath, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<string>> EnumerateFilesAsync(string directoryPath, string searchPattern, CancellationToken cancellationToken = default);
 }

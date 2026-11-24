@@ -5,5 +5,13 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./tests/test-setup.ts",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      thresholds: {
+        lines: 50,
+        branches: 50,
+      },
+    },
   },
 });

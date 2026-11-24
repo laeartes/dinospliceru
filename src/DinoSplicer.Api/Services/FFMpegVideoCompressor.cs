@@ -346,12 +346,13 @@ public class FFMpegVideoCompressor(
     {
         try
         {
-            if (!Directory.Exists(outputDirectory))
-            {
-                return;
-            }
+            IReadOnlyList<string> files = await _fileSystem.EnumerateFilesAsync(
+                outputDirectory,
+                $"{filePrefix}*",
+                CancellationToken.None
+            );
 
-            foreach (string file in Directory.EnumerateFiles(outputDirectory, $"{filePrefix}*"))
+            foreach (string file in files)
             {
                 await _fileSystem.DeleteFileIfExistsAsync(file, CancellationToken.None);
             }
