@@ -119,7 +119,7 @@ describe('App', () => {
 
     // Overview shows Ready status with workspace tabs and Cut/Compress/Splicer buttons
     const splicerBtn = await screen.findByTestId('open-splicer-btn')
-    expect(screen.getByTestId('workspace-tablist')).toBeInTheDocument()
+    expect(await screen.findByTestId('workspace-tablist')).toBeInTheDocument()
     expect(screen.queryByTestId('editor-btn')).not.toBeInTheDocument()
     expect(splicerBtn).toBeInTheDocument()
 
@@ -354,6 +354,7 @@ describe('App', () => {
     fireEvent.keyDown(cutterTab, { key: 'ArrowRight' })
     expect(compressorTab).toHaveAttribute('aria-selected', 'true')
     expect(document.activeElement).toBe(compressorTab)
+    fireEvent.click(screen.getByTestId('toggle-advanced-btn'))
     fireEvent.change(screen.getByTestId('crf-input'), { target: { value: '28' } })
 
     fireEvent.keyDown(compressorTab, { key: 'ArrowRight' })

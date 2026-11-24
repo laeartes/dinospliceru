@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateSizeSavings,
+  estimateCompressionForTargetSize,
   getCompatibleCodec,
   validateCompressionParameters,
   type CompressionFormInput,
@@ -88,5 +89,36 @@ describe('compressionValidation', () => {
       percentSaved: 60,
     })
     expect(calculateSizeSavings(0, 100)).toEqual({ savedBytes: 0, percentSaved: 0 })
+  })
+
+  it('estimates compression parameters from a target MB size', () => {
+    const twentyMb = 20 * 1024 * 1024
+
+    expect(estimateCompressionForTargetSize(0, twentyMb, sourceRes, 'H264')).toBeNull()
+    expect(estimateCompressionForTargetSize(-5, twentyMb, sourceRes, 'H264')).toBeNull()
+
+    // 50% reduction keeps original resolution and raises CRF by ~6
+    expect(estimateCompressionForTargetSize(10, twentyMb, sourceRes, 'H264')).toEqual({
+      crf: 29,
+      resolutionPreset: 'original',
+      audioBitrateKbps: 128,
+      preset: 'Medium',
+    })
+
+    // Heavy reduction (25%) suggests 720p, 96kbps audio, Slow preset
+    expect(estimateCompressionForTargetSize(5, twentyMb, sourceRes, 'H264')).toEqual({
+      crf: 35,
+      resolutionPreset: '720p',
+      audioBitrateKbps: 96,
+      preset: 'Slow',
+    })
+
+    // Very heavy reduction (10%) suggests 480p and 64kbps audio
+    expect(estimateCompressionForTargetSize(2, twentyMb, sourceRes, 'H264')).toEqual({
+      crf: 43,
+      resolutionPreset: '480p',
+      audioBitrateKbps: 64,
+      preset: 'Slow',
+    })
   })
 })

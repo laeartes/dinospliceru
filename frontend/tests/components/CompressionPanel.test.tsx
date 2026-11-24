@@ -27,9 +27,34 @@ describe('CompressionPanel', () => {
     vi.useRealTimers()
   })
 
+  describe('quick target size estimator and advanced settings drawer', () => {
+    it('keeps advanced settings collapsed by default and auto-estimates settings from target MB or quick chips', () => {
+      render(<CompressionPanel video={mockReadyVideo} />)
+
+      expect(screen.queryByTestId('compression-advanced-settings')).not.toBeInTheDocument()
+      expect(screen.getByTestId('target-chip-25mb')).toBeDisabled()
+      expect(screen.getByTestId('target-chip-8mb')).toBeEnabled()
+
+      fireEvent.click(screen.getByTestId('target-chip-8mb'))
+      expect(screen.getByTestId('target-size-input')).toHaveValue('8')
+      expect(screen.getByTestId('compression-active-summary')).toHaveTextContent(/Auto-picked: MP4 · CRF 31/)
+
+      fireEvent.change(screen.getByTestId('target-size-input'), { target: { value: '5' } })
+      expect(screen.getByTestId('compression-active-summary')).toHaveTextContent(/CRF 35 · 720p · 96 kbps · Slow/)
+
+      // Expanding advanced settings shows the auto-populated controls
+      fireEvent.click(screen.getByTestId('toggle-advanced-btn'))
+      expect(screen.getByTestId('compression-advanced-settings')).toBeInTheDocument()
+      expect(screen.getByTestId('crf-input')).toHaveValue('35')
+      expect(screen.getByTestId('preset-select')).toHaveValue('Slow')
+      expect(screen.getByTestId('audio-bitrate-select')).toHaveValue('96')
+    })
+  })
+
   describe('form validation and format/codec pairing', () => {
     it('auto-selects compatible codec when switching between MP4 and WebM and clamps CRF', () => {
       render(<CompressionPanel video={mockReadyVideo} />)
+      fireEvent.click(screen.getByTestId('toggle-advanced-btn'))
 
       expect(screen.getByTestId('selected-codec-info')).toHaveTextContent('Active codec: H264 (CRF 0–51)')
 
@@ -51,6 +76,7 @@ describe('CompressionPanel', () => {
     it('blocks submission on odd custom dimensions and out-of-range CRF', () => {
       const startSpy = vi.spyOn(compressionApi, 'startCompression')
       render(<CompressionPanel video={mockReadyVideo} />)
+      fireEvent.click(screen.getByTestId('toggle-advanced-btn'))
 
       fireEvent.click(screen.getByTestId('resolution-custom'))
       fireEvent.change(screen.getByTestId('custom-width-input'), { target: { value: '1281' } })
@@ -106,6 +132,7 @@ describe('CompressionPanel', () => {
       })
 
       render(<CompressionPanel video={mockReadyVideo} />)
+      fireEvent.click(screen.getByTestId('toggle-advanced-btn'))
 
       fireEvent.click(screen.getByTestId('format-webm'))
       fireEvent.click(screen.getByTestId('resolution-720p'))
