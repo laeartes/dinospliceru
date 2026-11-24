@@ -47,21 +47,17 @@
 
 **BETA**
 
+- Video cutting
+
 - Video compression
 
 - Custom parameters (resolution, CRF, etc.)
-
-- User accounts (used to save presets, previous clips)
 
 ---
 
 **FINAL**
 
-- Ability to queue videos
-
-- Statistics
-
-- Polished product
+- Stay Tuned Kings.
 
 ### Technology Stack
 
