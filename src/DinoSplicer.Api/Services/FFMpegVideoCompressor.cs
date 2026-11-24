@@ -222,7 +222,13 @@ public class FFMpegVideoCompressor(
         ArgumentNullException.ThrowIfNull(request);
         ValidateRequest(request);
 
-        List<string> args = pass == 1 ? ["-map 0:v:0"] : ["-map 0:v:0", "-map 0:a?"];
+        // In target-size mode, map only the primary audio stream (0:a:0?) so multi-track recordings
+        // (e.g. OBS 6-track files) don't multiply audio bitrate and blow past the target MB budget.
+        List<string> args = pass == 1
+            ? ["-map 0:v:0"]
+            : targetVideoBitrateKbps.HasValue
+                ? ["-map 0:v:0", "-map 0:a:0?"]
+                : ["-map 0:v:0", "-map 0:a?"];
 
         if (request.TargetWidth is int width && request.TargetHeight is int height)
         {

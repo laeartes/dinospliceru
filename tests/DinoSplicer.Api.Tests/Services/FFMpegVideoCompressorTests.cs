@@ -318,6 +318,7 @@ public class FFMpegVideoCompressorTests : IDisposable
         pass1.Should().NotContain("-crf");
 
         string pass2 = FFMpegVideoCompressor.BuildOutputArguments(request, targetVideoBitrateKbps: 1400, pass: 2, passLogPrefix: "/tmp/log");
+        pass2.Should().Contain("-map 0:a:0?");
         pass2.Should().Contain("-b:v 1400k");
         pass2.Should().Contain("-pass 2");
         pass2.Should().Contain("-c:a aac");
