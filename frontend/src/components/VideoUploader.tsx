@@ -44,7 +44,7 @@ function formatDuration(seconds: number): string {
 
 interface VideoUploaderProps {
   config: VideoUploadConfig
-  onFileSelect?: (file: File) => void
+  onFileSelect?: (file: File | null) => void
   onVideoReady?: (video: VideoResponse | null) => void
   onOpenSplicer?: () => void
   isSplicing?: boolean
@@ -193,6 +193,7 @@ function VideoUploader({
   function handleUploadAnother() {
     if (hasActiveJobs) return
     reset()
+    onFileSelect?.(null)
     setSelectedFile(null)
     setError(null)
     if (inputRef.current) {

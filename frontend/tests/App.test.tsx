@@ -223,7 +223,10 @@ describe('App', () => {
     expect(overviewSplicerBtn).toHaveTextContent('Splicer (processing...) ( •̀_•́ ) ✦')
   })
 
-  it('opens CutPanel from Ready overview and returns cleanly via Back button', async () => {
+  it('opens CutPanel from Ready overview with local video preview and returns cleanly via Back button', async () => {
+    const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:local-preview')
+    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
     class MockXHR {
       upload = { onprogress: null }
       status = 201
@@ -273,6 +276,7 @@ describe('App', () => {
     fireEvent.click(cutterBtn)
 
     expect(screen.getByTestId('cut-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('cut-video-preview')).toHaveAttribute('src', 'blob:local-preview')
     expect(screen.getByTestId('cut-start-input')).toHaveValue('00:00.0')
     expect(screen.getByTestId('cut-end-input')).toHaveValue('00:30.0')
 
@@ -284,6 +288,9 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('compression-back-btn'))
     expect(screen.getByTestId('open-compressor-btn')).toBeInTheDocument()
+
+    createObjectUrlSpy.mockRestore()
+    revokeObjectUrlSpy.mockRestore()
   })
 
   it('switches cleanly between Overview, Cutter, Compressor, and Splicer via workspace tabs while preserving all panel states', async () => {

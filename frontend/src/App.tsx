@@ -47,7 +47,6 @@ function App() {
   const handleVideoReady = useCallback((video: VideoResponse | null) => {
     setReadyVideo(video)
     if (!video) {
-      setSelectedLocalFile(null)
       setCurrentView('overview')
       setIsSplicing(false)
       setIsCutting(false)
