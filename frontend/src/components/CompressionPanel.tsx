@@ -14,7 +14,6 @@ import {
   MIN_CRF,
   RESOLUTION_PRESET_DIMENSIONS,
   calculateSizeSavings,
-  estimateCompressionForTargetSize,
   getCompatibleCodec,
   getCrfQualityHint,
   getMaxCrf,
@@ -114,44 +113,21 @@ export default function CompressionPanel({
       customHeightInput,
       preset,
       audioBitrateKbps,
+      targetSizeMbInput,
     },
-    video.resolution
+    video.resolution,
+    video.durationSeconds
   )
 
   const sourceSizeMb = video.sizeBytes / (1024 * 1024)
   const halfSizeMb = Math.max(0.5, Math.round(sourceSizeMb * 5) / 10)
-  const parsedTargetMb =
-    /^\d+(\.\d+)?$/.test(targetSizeMbInput.trim()) ? Number(targetSizeMbInput.trim()) : null
-  const targetSizeInvalid =
-    targetSizeMbInput.trim() !== '' && (parsedTargetMb === null || parsedTargetMb <= 0)
-
-  function applyTargetSize(rawValue: string, codecOverride?: VideoCodecOption) {
-    setTargetSizeMbInput(rawValue)
-    const trimmed = rawValue.trim()
-    if (!/^\d+(\.\d+)?$/.test(trimmed)) return
-    const targetMb = Number(trimmed)
-    const estimate = estimateCompressionForTargetSize(
-      targetMb,
-      video.sizeBytes,
-      video.resolution,
-      codecOverride ?? videoCodec
-    )
-    if (!estimate) return
-    setCrfInput(String(estimate.crf))
-    setResolutionPreset(estimate.resolutionPreset)
-    setAudioBitrateKbps(estimate.audioBitrateKbps)
-    setPreset(estimate.preset)
-  }
+  const hasTargetSize = validation.request?.targetSizeBytes != null
 
   function handleFormatChange(nextFormat: OutputContainerFormat) {
     const nextCodec = getCompatibleCodec(nextFormat)
     const nextMaxCrf = getMaxCrf(nextCodec)
     setFormat(nextFormat)
     setVideoCodec(nextCodec)
-    if (parsedTargetMb !== null && parsedTargetMb > 0) {
-      applyTargetSize(targetSizeMbInput, nextCodec)
-      return
-    }
     if (/^\d+$/.test(crfInput.trim()) && Number(crfInput.trim()) > nextMaxCrf) {
       setCrfInput(String(nextMaxCrf))
     }
@@ -225,7 +201,7 @@ export default function CompressionPanel({
           className="flex flex-col items-center gap-5"
           data-testid="compression-form"
         >
-          {/* Quick Target Size Estimator (est. MB) */}
+          {/* Target Size (MB) — FFmpeg 2-pass bitrate mode */}
           <div className="w-full max-w-md border-2 border-cyber-border bg-slate-50/80 p-4 text-left">
             <div className="mb-2 flex items-center justify-between gap-2">
               <label
@@ -233,7 +209,7 @@ export default function CompressionPanel({
                 className="text-xs font-mono font-semibold text-cyber-dark uppercase tracking-wide"
               >
                 <span className="text-cyber-pink mr-1" aria-hidden="true">♡</span>
-                Target Size (approx. MB)
+                Target Size (MB)
               </label>
               <span className="font-mono text-[11px] text-slate-400">
                 Source: {formatFileSize(video.sizeBytes)}
@@ -246,21 +222,32 @@ export default function CompressionPanel({
                 type="text"
                 inputMode="decimal"
                 value={targetSizeMbInput}
-                onChange={(e) => applyTargetSize(e.target.value)}
-                placeholder={`e.g. ${halfSizeMb}`}
+                onChange={(e) => setTargetSizeMbInput(e.target.value)}
+                placeholder={`e.g. ${halfSizeMb} (leave blank for CRF)`}
                 className="w-full border-2 border-cyber-border bg-white px-3 py-2 font-mono text-sm text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors"
                 data-testid="target-size-input"
               />
               <span className="border-2 border-cyber-border bg-white px-3 py-2 font-mono text-xs font-semibold text-slate-500">
                 MB
               </span>
+              {targetSizeMbInput.trim() !== '' && (
+                <button
+                  type="button"
+                  onClick={() => setTargetSizeMbInput('')}
+                  aria-label="Clear target size"
+                  className="border-2 border-cyber-border bg-white px-2.5 py-2 font-mono text-xs text-slate-500 hover:border-cyber-pink hover:text-cyber-pink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors cursor-pointer"
+                  data-testid="clear-target-size-btn"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             <div className="mt-2.5 flex flex-wrap gap-2" role="group" aria-label="Quick target size presets">
               <button
                 type="button"
                 disabled={sourceSizeMb <= 8}
-                onClick={() => applyTargetSize('8')}
+                onClick={() => setTargetSizeMbInput('8')}
                 className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-pink hover:bg-cyber-pink/10 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-all cursor-pointer"
                 data-testid="target-chip-8mb"
               >
@@ -269,7 +256,7 @@ export default function CompressionPanel({
               <button
                 type="button"
                 disabled={sourceSizeMb <= 25}
-                onClick={() => applyTargetSize('25')}
+                onClick={() => setTargetSizeMbInput('25')}
                 className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-teal hover:bg-cyber-teal/10 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-teal transition-all cursor-pointer"
                 data-testid="target-chip-25mb"
               >
@@ -277,7 +264,7 @@ export default function CompressionPanel({
               </button>
               <button
                 type="button"
-                onClick={() => applyTargetSize(String(halfSizeMb))}
+                onClick={() => setTargetSizeMbInput(String(halfSizeMb))}
                 className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/15 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-all cursor-pointer"
                 data-testid="target-chip-50pct"
               >
@@ -285,27 +272,25 @@ export default function CompressionPanel({
               </button>
             </div>
 
-            {targetSizeInvalid && (
-              <p className="mt-2 font-mono text-xs text-red-600" role="alert" data-testid="target-size-error">
-                Enter a positive MB number (；´Д｀)
-              </p>
-            )}
-
             <div
               className="mt-3 border border-dashed border-cyber-border bg-white px-3 py-2 font-mono text-[11px] text-slate-600"
               data-testid="compression-active-summary"
             >
               <span className="text-cyber-pink font-semibold mr-1" aria-hidden="true">✦</span>
               <span>
-                {parsedTargetMb !== null && parsedTargetMb > 0 ? 'Auto-picked: ' : 'Active: '}
-                {format.toUpperCase()} &middot; CRF {crfInput.trim() || '—'} &middot;{' '}
+                {hasTargetSize
+                  ? `2-Pass Target: ${targetSizeMbInput.trim()}MB`
+                  : `Quality Mode: CRF ${crfInput.trim() || '—'}`}
+                {' '}&middot; {format.toUpperCase()} &middot;{' '}
                 {resolutionPreset === 'original' ? 'Original' : resolutionPreset} &middot;{' '}
                 {audioBitrateKbps === null ? 'Original audio' : `${audioBitrateKbps} kbps`} &middot; {preset}{' '}
                 <span className="text-cyber-pink">(｡•̀ᴗ-)✧</span>
               </span>
             </div>
             <p className="mt-1.5 font-mono text-[10px] text-slate-400">
-              Best-effort CRF estimate — actual size varies with motion &amp; detail (´｡• ᵕ •｡`)
+              {hasTargetSize
+                ? 'Uses FFmpeg 2-pass bitrate encoding to land right under your MB target ( •̀_•́ )'
+                : 'Leave blank to use CRF quality mode, or open Advanced settings below (´｡• ᵕ •｡`)'}
             </p>
           </div>
 
@@ -479,7 +464,9 @@ export default function CompressionPanel({
               data-testid="crf-slider"
             />
             <p className="mt-1 text-xs font-mono text-slate-400" data-testid="crf-hint">
-              {getCrfQualityHint(sliderCrf, videoCodec)}
+              {hasTargetSize
+                ? `Overridden by 2-pass target (${targetSizeMbInput.trim()}MB) — clear Target Size to tune CRF`
+                : getCrfQualityHint(sliderCrf, videoCodec)}
             </p>
           </div>
 
@@ -552,7 +539,7 @@ export default function CompressionPanel({
 
           <button
             type="submit"
-            disabled={validation.error !== null || targetSizeInvalid}
+            disabled={validation.error !== null}
             className="mt-1 bg-cyber-cyan px-6 py-2.5 font-medium text-cyber-dark hover:bg-cyber-cyan-hover hover:text-white hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_#373b3e] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan focus-visible:ring-offset-2 transition-all cursor-pointer"
             data-testid="start-compression-btn"
           >

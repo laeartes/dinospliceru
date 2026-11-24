@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateSizeSavings,
-  estimateCompressionForTargetSize,
   getCompatibleCodec,
   validateCompressionParameters,
   type CompressionFormInput,
@@ -36,6 +35,7 @@ describe('compressionValidation', () => {
       targetWidth: null,
       targetHeight: null,
       audioBitrateKbps: 128,
+      targetSizeBytes: null,
       preset: 'Medium',
     })
   })
@@ -91,34 +91,22 @@ describe('compressionValidation', () => {
     expect(calculateSizeSavings(0, 100)).toEqual({ savedBytes: 0, percentSaved: 0 })
   })
 
-  it('estimates compression parameters from a target MB size', () => {
-    const twentyMb = 20 * 1024 * 1024
+  it('validates targetSizeMbInput and converts to targetSizeBytes', () => {
+    const valid = validateCompressionParameters({ ...baseInput, targetSizeMbInput: '8' }, sourceRes, 41.3)
+    expect(valid.error).toBeNull()
+    expect(valid.request?.targetSizeBytes).toBe(8 * 1024 * 1024)
 
-    expect(estimateCompressionForTargetSize(0, twentyMb, sourceRes, 'H264')).toBeNull()
-    expect(estimateCompressionForTargetSize(-5, twentyMb, sourceRes, 'H264')).toBeNull()
+    expect(
+      validateCompressionParameters({ ...baseInput, targetSizeMbInput: '0' }, sourceRes, 41.3).error
+    ).toMatch(/positive number/i)
 
-    // 50% reduction keeps original resolution and raises CRF by ~6
-    expect(estimateCompressionForTargetSize(10, twentyMb, sourceRes, 'H264')).toEqual({
-      crf: 29,
-      resolutionPreset: 'original',
-      audioBitrateKbps: 128,
-      preset: 'Medium',
-    })
+    expect(
+      validateCompressionParameters({ ...baseInput, targetSizeMbInput: 'abc' }, sourceRes, 41.3).error
+    ).toMatch(/positive number/i)
 
-    // Heavy reduction (25%) suggests 720p, 96kbps audio, Slow preset
-    expect(estimateCompressionForTargetSize(5, twentyMb, sourceRes, 'H264')).toEqual({
-      crf: 35,
-      resolutionPreset: '720p',
-      audioBitrateKbps: 96,
-      preset: 'Slow',
-    })
-
-    // Very heavy reduction (10%) suggests 480p and 64kbps audio
-    expect(estimateCompressionForTargetSize(2, twentyMb, sourceRes, 'H264')).toEqual({
-      crf: 43,
-      resolutionPreset: '480p',
-      audioBitrateKbps: 64,
-      preset: 'Slow',
-    })
+    // 0.1MB over 120s leaves less than 50kbps video bitrate after 128kbps audio
+    expect(
+      validateCompressionParameters({ ...baseInput, targetSizeMbInput: '0.1' }, sourceRes, 120).error
+    ).toMatch(/too small/i)
   })
 })

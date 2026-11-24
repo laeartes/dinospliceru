@@ -11,6 +11,9 @@ export const MAX_H264_CRF = 51
 export const MAX_VP9_CRF = 63
 export const MIN_AUDIO_BITRATE_KBPS = 32
 export const MAX_AUDIO_BITRATE_KBPS = 512
+export const MIN_TARGET_VIDEO_BITRATE_KBPS = 50
+const DEFAULT_AUDIO_BITRATE_KBPS = 128
+const CONTAINER_OVERHEAD_FACTOR = 0.96
 
 export type ResolutionPreset = 'original' | '1080p' | '720p' | '480p' | 'custom'
 
@@ -58,6 +61,7 @@ export interface CompressionFormInput {
   customHeightInput: string
   preset: EncodingPresetOption
   audioBitrateKbps: number | null
+  targetSizeMbInput?: string
 }
 
 export type CompressionValidationResult =
@@ -79,10 +83,11 @@ function validateDimension(name: string, value: number, maxSource: number | unde
   return null
 }
 
-/** Validates compression form inputs against backend codec, CRF, resolution, and audio rules. */
+/** Validates compression form inputs against backend codec, CRF, resolution, audio, and target-size rules. */
 export function validateCompressionParameters(
   input: CompressionFormInput,
-  sourceResolution: Resolution | null
+  sourceResolution: Resolution | null,
+  sourceDurationSeconds: number | null = null
 ): CompressionValidationResult {
   if (!isCompatibleFormatCodec(input.format, input.videoCodec)) {
     return {
@@ -140,6 +145,30 @@ export function validateCompressionParameters(
     }
   }
 
+  let targetSizeBytes: number | null = null
+  const trimmedTargetMb = input.targetSizeMbInput?.trim() ?? ''
+  if (trimmedTargetMb !== '') {
+    if (!/^\d+(\.\d+)?$/.test(trimmedTargetMb) || Number(trimmedTargetMb) <= 0) {
+      return {
+        request: null,
+        error: 'Target size must be a positive number in MB (；´Д｀)',
+      }
+    }
+
+    targetSizeBytes = Math.round(Number(trimmedTargetMb) * 1024 * 1024)
+    if (sourceDurationSeconds !== null && sourceDurationSeconds > 0) {
+      const totalKbps = ((targetSizeBytes * 8) / sourceDurationSeconds / 1000) * CONTAINER_OVERHEAD_FACTOR
+      const audioKbps = input.audioBitrateKbps ?? DEFAULT_AUDIO_BITRATE_KBPS
+      const videoBitrateKbps = Math.floor(totalKbps - audioKbps)
+      if (videoBitrateKbps < MIN_TARGET_VIDEO_BITRATE_KBPS) {
+        return {
+          request: null,
+          error: "Target size is too small for this video's duration and audio bitrate (；´Д｀)",
+        }
+      }
+    }
+  }
+
   return {
     request: {
       format: input.format,
@@ -148,6 +177,7 @@ export function validateCompressionParameters(
       targetWidth,
       targetHeight,
       audioBitrateKbps: input.audioBitrateKbps,
+      targetSizeBytes,
       preset: input.preset,
     },
     error: null,
@@ -163,61 +193,4 @@ export function calculateSizeSavings(
   const savedBytes = originalBytes - compressedBytes
   const percentSaved = Math.round((savedBytes / originalBytes) * 1000) / 10
   return { savedBytes, percentSaved }
-}
-
-export interface TargetSizeEstimate {
-  crf: number
-  resolutionPreset: Exclude<ResolutionPreset, 'custom'>
-  audioBitrateKbps: number
-  preset: EncodingPresetOption
-}
-
-/**
- * Estimates CRF, resolution downscale, and audio bitrate to roughly match a target size in MB.
- * Because CRF is content-dependent, the resulting file size is a best-effort approximation.
- */
-export function estimateCompressionForTargetSize(
-  targetSizeMb: number,
-  sourceSizeBytes: number,
-  sourceResolution: Resolution | null,
-  codec: VideoCodecOption
-): TargetSizeEstimate | null {
-  if (!Number.isFinite(targetSizeMb) || targetSizeMb <= 0 || sourceSizeBytes <= 0) {
-    return null
-  }
-
-  const targetBytes = targetSizeMb * 1024 * 1024
-  const ratio = Math.min(1, targetBytes / sourceSizeBytes)
-
-  // ~+6 CRF roughly halves bitrate for H.264 / VP9.
-  const baseCrf = codec === 'H264' ? 23 : 28
-  const maxEstimatedCrf = codec === 'H264' ? 46 : 58
-  const crfDelta = ratio < 1 ? Math.round(-6 * Math.log2(ratio)) : 0
-  const crf = Math.min(maxEstimatedCrf, Math.max(18, baseCrf + crfDelta))
-
-  let resolutionPreset: Exclude<ResolutionPreset, 'custom'> = 'original'
-  if (
-    ratio < 0.15 &&
-    sourceResolution &&
-    (sourceResolution.width > 854 || sourceResolution.height > 480)
-  ) {
-    resolutionPreset = '480p'
-  } else if (
-    ratio < 0.35 &&
-    sourceResolution &&
-    (sourceResolution.width > 1280 || sourceResolution.height > 720)
-  ) {
-    resolutionPreset = '720p'
-  }
-
-  let audioBitrateKbps = 128
-  if (ratio < 0.15) {
-    audioBitrateKbps = 64
-  } else if (ratio < 0.35) {
-    audioBitrateKbps = 96
-  }
-
-  const preset: EncodingPresetOption = ratio < 0.35 ? 'Slow' : 'Medium'
-
-  return { crf, resolutionPreset, audioBitrateKbps, preset }
 }

@@ -27,8 +27,43 @@ describe('CompressionPanel', () => {
     vi.useRealTimers()
   })
 
-  describe('quick target size estimator and advanced settings drawer', () => {
-    it('keeps advanced settings collapsed by default and auto-estimates settings from target MB or quick chips', () => {
+  describe('target size MB mode and advanced settings drawer', () => {
+    it('keeps advanced settings collapsed by default and sends targetSizeBytes when a MB target is set', async () => {
+      const startSpy = vi.spyOn(compressionApi, 'startCompression').mockResolvedValue({
+        jobId: 'job-target-8mb',
+        format: 'Mp4',
+        videoCodec: 'H264',
+        crf: 23,
+        targetWidth: null,
+        targetHeight: null,
+        audioBitrateKbps: 128,
+        targetSizeBytes: 8 * 1024 * 1024,
+        preset: 'Medium',
+        status: 'Pending',
+        progressPercent: 0,
+        error: null,
+        outputFileName: null,
+        outputDurationSeconds: null,
+        outputSizeBytes: null,
+      })
+      vi.spyOn(compressionApi, 'getCompressionJob').mockResolvedValue({
+        jobId: 'job-target-8mb',
+        format: 'Mp4',
+        videoCodec: 'H264',
+        crf: 23,
+        targetWidth: null,
+        targetHeight: null,
+        audioBitrateKbps: 128,
+        targetSizeBytes: 8 * 1024 * 1024,
+        preset: 'Medium',
+        status: 'Pending',
+        progressPercent: 0,
+        error: null,
+        outputFileName: null,
+        outputDurationSeconds: null,
+        outputSizeBytes: null,
+      })
+
       render(<CompressionPanel video={mockReadyVideo} />)
 
       expect(screen.queryByTestId('compression-advanced-settings')).not.toBeInTheDocument()
@@ -37,17 +72,19 @@ describe('CompressionPanel', () => {
 
       fireEvent.click(screen.getByTestId('target-chip-8mb'))
       expect(screen.getByTestId('target-size-input')).toHaveValue('8')
-      expect(screen.getByTestId('compression-active-summary')).toHaveTextContent(/Auto-picked: MP4 · CRF 31/)
+      expect(screen.getByTestId('compression-active-summary')).toHaveTextContent(/2-Pass Target: 8MB/)
 
-      fireEvent.change(screen.getByTestId('target-size-input'), { target: { value: '5' } })
-      expect(screen.getByTestId('compression-active-summary')).toHaveTextContent(/CRF 35 · 720p · 96 kbps · Slow/)
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('start-compression-btn'))
+      })
 
-      // Expanding advanced settings shows the auto-populated controls
-      fireEvent.click(screen.getByTestId('toggle-advanced-btn'))
-      expect(screen.getByTestId('compression-advanced-settings')).toBeInTheDocument()
-      expect(screen.getByTestId('crf-input')).toHaveValue('35')
-      expect(screen.getByTestId('preset-select')).toHaveValue('Slow')
-      expect(screen.getByTestId('audio-bitrate-select')).toHaveValue('96')
+      expect(startSpy).toHaveBeenCalledWith(
+        'vid-comp-123',
+        expect.objectContaining({
+          targetSizeBytes: 8 * 1024 * 1024,
+        }),
+        expect.any(AbortSignal)
+      )
     })
   })
 
@@ -153,6 +190,7 @@ describe('CompressionPanel', () => {
           targetWidth: 1280,
           targetHeight: 720,
           audioBitrateKbps: 96,
+          targetSizeBytes: null,
           preset: 'Fast',
         },
         expect.any(AbortSignal)

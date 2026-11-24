@@ -16,6 +16,7 @@ const sampleJob: CompressionJobResponse = {
   targetWidth: 1280,
   targetHeight: 720,
   audioBitrateKbps: 128,
+  targetSizeBytes: null,
   preset: 'Medium',
   status: 'Pending',
   progressPercent: 0,
