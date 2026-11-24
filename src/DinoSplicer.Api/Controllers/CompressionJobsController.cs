@@ -67,7 +67,7 @@ public class CompressionJobsController(
 
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
         string filePath = Path.Combine(storageDirectory, job.OutputStoragePath);
-        if (!System.IO.File.Exists(filePath))
+        if (!await fileSystem.FileExistsAsync(filePath, cancellationToken))
         {
             throw CreateOutputFileMissingException();
         }

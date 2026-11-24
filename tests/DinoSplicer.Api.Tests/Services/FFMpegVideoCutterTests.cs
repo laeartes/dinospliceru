@@ -389,5 +389,8 @@ public class FFMpegVideoCutterTests : IDisposable
         public Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default) => throw new IOException("file locked");
         public Task DeleteDirectoryRecursiveAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new IOException("directory locked");
         public Task DeleteDirectoryIfEmptyAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new IOException("directory locked");
+        public Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> DirectoryHasEntriesAsync(string directoryPath, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<IReadOnlyList<string>> EnumerateFilesAsync(string directoryPath, string searchPattern, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<string>>([]);
     }
 }

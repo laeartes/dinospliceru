@@ -14,7 +14,8 @@ namespace DinoSplicer.Api.Controllers;
 public class SpliceJobsController(
     AppDbContext db,
     IOptions<VideoUploadOptions> uploadOptions,
-    IWebHostEnvironment environment
+    IWebHostEnvironment environment,
+    IFileSystem fileSystem
 ) : ApiControllerBase
 {
     private readonly VideoUploadOptions _options = uploadOptions.Value;
@@ -51,10 +52,7 @@ public class SpliceJobsController(
         // Removes the job's folder: every segment file, plus any file that has no output row
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
         string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(storageDirectory, job.Id);
-        if (Directory.Exists(outputDirectory))
-        {
-            Directory.Delete(outputDirectory, recursive: true);
-        }
+        await fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, CancellationToken.None);
 
         return NoContent();
     }

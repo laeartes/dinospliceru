@@ -90,6 +90,7 @@ public class CompressionSchemaTests(VideoApiFactory factory) : IClassFixture<Vid
             "target_width",
             "target_height",
             "audio_bitrate_kbps",
+            "target_size_bytes",
             "preset",
             "status",
             "output_file_name",

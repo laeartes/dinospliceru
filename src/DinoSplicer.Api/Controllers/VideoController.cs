@@ -17,7 +17,8 @@ public class VideoController(
     IOptions<VideoUploadOptions> uploadOptions,
     IWebHostEnvironment environment,
     IBackgroundJobQueue<Video> processingQueue,
-    IVideoAccessCoordinator accessCoordinator
+    IVideoAccessCoordinator accessCoordinator,
+    IFileSystem fileSystem
 ) : ApiControllerBase
 
 {
@@ -80,7 +81,7 @@ public class VideoController(
         }
 
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
-        Directory.CreateDirectory(storageDirectory);
+        await fileSystem.CreateDirectoryIfNotExistsAsync(storageDirectory, cancellationToken);
 
         Video video = new()
         {
@@ -111,7 +112,7 @@ public class VideoController(
                                 or System.Net.Sockets.SocketException
                                 or System.IO.IOException)
         {
-            System.IO.File.Delete(fullPath);
+            await fileSystem.DeleteFileIfExistsAsync(fullPath, CancellationToken.None);
             return ApiErrorResult(
                 StatusCodes.Status500InternalServerError,
                 "Couldn't connect to database or save video record. Please ensure the database is running and migrations are applied.",
@@ -120,7 +121,7 @@ public class VideoController(
         }
         catch
         {
-            System.IO.File.Delete(fullPath);
+            await fileSystem.DeleteFileIfExistsAsync(fullPath, CancellationToken.None);
             throw;
         }
 
@@ -213,37 +214,25 @@ public class VideoController(
             string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
             string fullPath = Path.Combine(storageDirectory, video.FileName);
 
-            if (System.IO.File.Exists(fullPath))
-            {
-                System.IO.File.Delete(fullPath);
-            }
+            await fileSystem.DeleteFileIfExistsAsync(fullPath, CancellationToken.None);
 
             // The database deletes the splice jobs together with the video, their segment files are removed here
             foreach (SpliceJob job in spliceJobs)
             {
                 string outputDirectory = SpliceProcessingWorker.GetOutputDirectory(storageDirectory, job.Id);
-                if (Directory.Exists(outputDirectory))
-                {
-                    Directory.Delete(outputDirectory, recursive: true);
-                }
+                await fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, CancellationToken.None);
             }
 
             foreach (CutJob job in cutJobs)
             {
                 string outputDirectory = CutJob.GetOutputDirectory(storageDirectory, job.Id);
-                if (Directory.Exists(outputDirectory))
-                {
-                    Directory.Delete(outputDirectory, recursive: true);
-                }
+                await fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, CancellationToken.None);
             }
 
             foreach (CompressionJob job in compressionJobs)
             {
                 string outputDirectory = CompressionJob.GetOutputDirectory(storageDirectory, job.Id);
-                if (Directory.Exists(outputDirectory))
-                {
-                    Directory.Delete(outputDirectory, recursive: true);
-                }
+                await fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, CancellationToken.None);
             }
 
             return NoContent();

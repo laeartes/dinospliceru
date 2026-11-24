@@ -2,6 +2,7 @@ using System.Net.Mime;
 
 using DinoSplicer.Api.Data;
 using DinoSplicer.Api.Models;
+using DinoSplicer.Api.Services;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
@@ -16,7 +17,8 @@ public class SpliceOutputsController(
     AppDbContext db,
     IOptions<VideoUploadOptions> uploadOptions,
     IWebHostEnvironment environment,
-    IContentTypeProvider contentTypeProvider
+    IContentTypeProvider contentTypeProvider,
+    IFileSystem fileSystem
 ) : ApiControllerBase
 {
     private readonly VideoUploadOptions _options = uploadOptions.Value;
@@ -49,7 +51,7 @@ public class SpliceOutputsController(
 
         string storageDirectory = Path.GetFullPath(_options.StoragePath, environment.ContentRootPath);
         string filePath = Path.Combine(storageDirectory, output.StoragePath);
-        if (!System.IO.File.Exists(filePath))
+        if (!await fileSystem.FileExistsAsync(filePath, cancellationToken))
         {
             return ApiErrorResult(
                 StatusCodes.Status404NotFound,

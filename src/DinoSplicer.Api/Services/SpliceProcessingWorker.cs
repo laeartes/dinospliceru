@@ -61,6 +61,7 @@ public class SpliceProcessingWorker(
         using IServiceScope scope = scopeFactory.CreateScope();
         AppDbContext db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         IVideoSplicer splicer = scope.ServiceProvider.GetRequiredService<IVideoSplicer>();
+        IFileSystem fileSystem = scope.ServiceProvider.GetRequiredService<IFileSystem>();
         VideoUploadOptions options = scope.ServiceProvider.GetRequiredService<IOptions<VideoUploadOptions>>().Value;
         IWebHostEnvironment environment = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
 
@@ -151,10 +152,7 @@ public class SpliceProcessingWorker(
             job.Status = SpliceJobStatus.Failed;
             job.ErrorMessage = ex is MediaProcessingException ? ex.Message : "The video could not be spliced.";
 
-            if (Directory.Exists(outputDirectory))
-            {
-                Directory.Delete(outputDirectory, recursive: true);
-            }
+            await fileSystem.DeleteDirectoryRecursiveAsync(outputDirectory, CancellationToken.None);
         }
 
         await db.SaveChangesAsync(CancellationToken.None);
