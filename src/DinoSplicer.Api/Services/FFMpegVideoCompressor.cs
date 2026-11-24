@@ -212,6 +212,26 @@ public class FFMpegVideoCompressor(
         return (int)Math.Floor(totalKbps - audioKbps);
     }
 
+    public static int? ResolveAutoMaxHeight(int videoBitrateKbps)
+    {
+        if (videoBitrateKbps < 250)
+        {
+            return 360;
+        }
+
+        if (videoBitrateKbps < 500)
+        {
+            return 480;
+        }
+
+        if (videoBitrateKbps < 1000)
+        {
+            return 720;
+        }
+
+        return null;
+    }
+
     public static string BuildOutputArguments(
         CompressionRequest request,
         int? targetVideoBitrateKbps = null,
@@ -233,6 +253,11 @@ public class FFMpegVideoCompressor(
         if (request.TargetWidth is int width && request.TargetHeight is int height)
         {
             args.Add($"-vf scale={width.ToString(CultureInfo.InvariantCulture)}:{height.ToString(CultureInfo.InvariantCulture)}");
+        }
+        else if (targetVideoBitrateKbps is int autoBitrate && ResolveAutoMaxHeight(autoBitrate) is int maxHeight)
+        {
+            // Keep aspect ratio and even dimensions while capping height so libx264 doesn't hit its QP=51 floor.
+            args.Add($"-vf \"scale=-2:trunc(min({maxHeight.ToString(CultureInfo.InvariantCulture)}\\,ih)/2)*2\"");
         }
 
         if (targetVideoBitrateKbps is int bitrateKbps)

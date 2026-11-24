@@ -324,7 +324,16 @@ public class FFMpegVideoCompressorTests : IDisposable
         pass2.Should().Contain("-c:a aac");
         pass2.Should().Contain("-b:a 128k");
         pass2.Should().Contain("-movflags +faststart");
+        pass2.Should().NotContain("-vf");
         pass2.Should().NotContain("-crf");
+
+        // Low target bitrate triggers automatic downscaling when no explicit resolution is set
+        string lowBitratePass = FFMpegVideoCompressor.BuildOutputArguments(request, targetVideoBitrateKbps: 180, pass: 2, passLogPrefix: "/tmp/log");
+        lowBitratePass.Should().Contain("min(360\\,ih)");
+        FFMpegVideoCompressor.ResolveAutoMaxHeight(180).Should().Be(360);
+        FFMpegVideoCompressor.ResolveAutoMaxHeight(400).Should().Be(480);
+        FFMpegVideoCompressor.ResolveAutoMaxHeight(800).Should().Be(720);
+        FFMpegVideoCompressor.ResolveAutoMaxHeight(1200).Should().BeNull();
     }
 
     [Fact]
