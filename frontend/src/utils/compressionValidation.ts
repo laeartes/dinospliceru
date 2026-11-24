@@ -13,7 +13,7 @@ export const MIN_AUDIO_BITRATE_KBPS = 32
 export const MAX_AUDIO_BITRATE_KBPS = 512
 export const MIN_TARGET_VIDEO_BITRATE_KBPS = 50
 const DEFAULT_AUDIO_BITRATE_KBPS = 128
-const CONTAINER_OVERHEAD_FACTOR = 0.96
+const CONTAINER_OVERHEAD_FACTOR = 0.90
 
 export type ResolutionPreset = 'original' | '1080p' | '720p' | '480p' | 'custom'
 

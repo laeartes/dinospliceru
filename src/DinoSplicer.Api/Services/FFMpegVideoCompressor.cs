@@ -17,7 +17,7 @@ public class FFMpegVideoCompressor(
     private const string OutputFileBaseName = "compressed";
     public const int MinTargetVideoBitrateKbps = 50;
     private const int DefaultAudioBitrateKbps = 128;
-    private const double ContainerOverheadFactor = 0.96;
+    private const double ContainerOverheadFactor = 0.90;
 
     private readonly IVideoMetadataExtractor _metadataExtractor = metadataExtractor ?? throw new ArgumentNullException(nameof(metadataExtractor));
     private readonly IJobProgressTracker _progressTracker = progressTracker ?? throw new ArgumentNullException(nameof(progressTracker));
@@ -232,13 +232,12 @@ public class FFMpegVideoCompressor(
         if (targetVideoBitrateKbps is int bitrateKbps)
         {
             string bitrate = bitrateKbps.ToString(CultureInfo.InvariantCulture);
-            string maxRate = ((int)Math.Ceiling(bitrateKbps * 1.5)).ToString(CultureInfo.InvariantCulture);
             string bufSize = (bitrateKbps * 2).ToString(CultureInfo.InvariantCulture);
 
             switch (request.VideoCodec)
             {
                 case VideoCodecOption.H264:
-                    args.Add($"-c:v libx264 -b:v {bitrate}k -maxrate {maxRate}k -bufsize {bufSize}k -preset {GetH264Preset(request.Preset)} -pix_fmt yuv420p");
+                    args.Add($"-c:v libx264 -b:v {bitrate}k -maxrate {bitrate}k -bufsize {bufSize}k -preset {GetH264Preset(request.Preset)} -pix_fmt yuv420p");
                     break;
 
                 case VideoCodecOption.Vp9:

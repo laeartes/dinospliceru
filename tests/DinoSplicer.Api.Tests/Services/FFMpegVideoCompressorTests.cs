@@ -288,14 +288,14 @@ public class FFMpegVideoCompressorTests : IDisposable
     [Fact]
     public void CalculateTargetVideoBitrateKbps_ComputesExpectedBitrateAfterOverheadAndAudio()
     {
-        // 8MB over 41.3s with 128kbps audio -> ~1430 kbps video
+        // 8MB over 41.3s with 128kbps audio and 0.90 headroom -> ~1333 kbps video
         int bitrate = FFMpegVideoCompressor.CalculateTargetVideoBitrateKbps(
             targetSizeBytes: 8L * 1024 * 1024,
             duration: TimeSpan.FromSeconds(41.3),
             audioBitrateKbps: 128
         );
 
-        bitrate.Should().BeInRange(1400, 1460);
+        bitrate.Should().BeInRange(1300, 1360);
     }
 
     [Fact]
