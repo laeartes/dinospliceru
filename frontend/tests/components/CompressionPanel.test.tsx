@@ -30,14 +30,14 @@ describe('CompressionPanel', () => {
   describe('target size MB mode and advanced settings drawer', () => {
     it('keeps advanced settings collapsed by default and sends targetSizeBytes when a MB target is set', async () => {
       const startSpy = vi.spyOn(compressionApi, 'startCompression').mockResolvedValue({
-        jobId: 'job-target-8mb',
+        jobId: 'job-target-10mb',
         format: 'Mp4',
         videoCodec: 'H264',
         crf: 23,
         targetWidth: null,
         targetHeight: null,
         audioBitrateKbps: 128,
-        targetSizeBytes: 8 * 1024 * 1024,
+        targetSizeBytes: 10 * 1024 * 1024,
         preset: 'Medium',
         status: 'Pending',
         progressPercent: 0,
@@ -47,14 +47,14 @@ describe('CompressionPanel', () => {
         outputSizeBytes: null,
       })
       vi.spyOn(compressionApi, 'getCompressionJob').mockResolvedValue({
-        jobId: 'job-target-8mb',
+        jobId: 'job-target-10mb',
         format: 'Mp4',
         videoCodec: 'H264',
         crf: 23,
         targetWidth: null,
         targetHeight: null,
         audioBitrateKbps: 128,
-        targetSizeBytes: 8 * 1024 * 1024,
+        targetSizeBytes: 10 * 1024 * 1024,
         preset: 'Medium',
         status: 'Pending',
         progressPercent: 0,
@@ -68,11 +68,11 @@ describe('CompressionPanel', () => {
 
       expect(screen.queryByTestId('compression-advanced-settings')).not.toBeInTheDocument()
       expect(screen.getByTestId('target-chip-25mb')).toBeDisabled()
-      expect(screen.getByTestId('target-chip-8mb')).toBeEnabled()
+      expect(screen.getByTestId('target-chip-10mb')).toBeEnabled()
 
-      fireEvent.click(screen.getByTestId('target-chip-8mb'))
-      expect(screen.getByTestId('target-size-input')).toHaveValue('8')
-      expect(screen.getByTestId('compression-active-summary')).toHaveTextContent(/2-Pass Target: 8MB/)
+      fireEvent.click(screen.getByTestId('target-chip-10mb'))
+      expect(screen.getByTestId('target-size-input')).toHaveValue('10')
+      expect(screen.getByTestId('compression-active-summary')).toHaveTextContent(/2-Pass Target: 10MB/)
 
       await act(async () => {
         fireEvent.click(screen.getByTestId('start-compression-btn'))
@@ -81,7 +81,7 @@ describe('CompressionPanel', () => {
       expect(startSpy).toHaveBeenCalledWith(
         'vid-comp-123',
         expect.objectContaining({
-          targetSizeBytes: 8 * 1024 * 1024,
+          targetSizeBytes: 10 * 1024 * 1024,
         }),
         expect.any(AbortSignal)
       )

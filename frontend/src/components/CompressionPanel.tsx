@@ -201,7 +201,7 @@ export default function CompressionPanel({
           className="flex flex-col items-center gap-5"
           data-testid="compression-form"
         >
-          {/* Target Size (MB) — FFmpeg 2-pass bitrate mode */}
+          {/* Target Size (MB) - FFmpeg 2-pass bitrate mode */}
           <div className="w-full max-w-md border-2 border-cyber-border bg-slate-50/80 p-4 text-left">
             <div className="mb-2 flex items-center justify-between gap-2">
               <label
@@ -246,12 +246,12 @@ export default function CompressionPanel({
             <div className="mt-2.5 flex flex-wrap gap-2" role="group" aria-label="Quick target size presets">
               <button
                 type="button"
-                disabled={sourceSizeMb <= 8}
-                onClick={() => setTargetSizeMbInput('8')}
+                disabled={sourceSizeMb <= 10}
+                onClick={() => setTargetSizeMbInput('10')}
                 className="border border-cyber-border bg-white px-2.5 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-pink hover:bg-cyber-pink/10 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-all cursor-pointer"
-                data-testid="target-chip-8mb"
+                data-testid="target-chip-10mb"
               >
-                ♡ 8MB (Discord)
+                ♡ 10MB (Discord)
               </button>
               <button
                 type="button"
@@ -280,7 +280,7 @@ export default function CompressionPanel({
               <span>
                 {hasTargetSize
                   ? `2-Pass Target: ${targetSizeMbInput.trim()}MB`
-                  : `Quality Mode: CRF ${crfInput.trim() || '—'}`}
+                  : `Quality Mode: CRF ${crfInput.trim() || '-'}`}
                 {' '}&middot; {format.toUpperCase()} &middot;{' '}
                 {resolutionPreset === 'original' ? 'Original' : resolutionPreset} &middot;{' '}
                 {audioBitrateKbps === null ? 'Original audio' : `${audioBitrateKbps} kbps`} &middot; {preset}{' '}
@@ -289,8 +289,8 @@ export default function CompressionPanel({
             </div>
             <p className="mt-1.5 font-mono text-[10px] text-slate-400">
               {hasTargetSize
-                ? 'Uses FFmpeg 2-pass bitrate encoding to land right under your MB target ( •̀_•́ )'
-                : 'Leave blank to use CRF quality mode, or open Advanced settings below (´｡• ᵕ •｡`)'}
+                ? 'Uses 2-pass encoding to hit your target size ( •̀_•́ )'
+                : 'Leave blank for CRF mode, or tweak options in Advanced settings (´｡• ᵕ •｡`)'}
             </p>
           </div>
 
@@ -465,7 +465,7 @@ export default function CompressionPanel({
             />
             <p className="mt-1 text-xs font-mono text-slate-400" data-testid="crf-hint">
               {hasTargetSize
-                ? `Overridden by 2-pass target (${targetSizeMbInput.trim()}MB) — clear Target Size to tune CRF`
+                ? `Overridden by 2-pass target (${targetSizeMbInput.trim()}MB), clear Target Size to tune CRF`
                 : getCrfQualityHint(sliderCrf, videoCodec)}
             </p>
           </div>

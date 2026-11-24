@@ -117,9 +117,9 @@ function App() {
                       role="tab"
                       aria-selected={isSelected}
                       aria-controls={`workspace-panel-${tab.id}`}
-                      aria-label={isActive ? `${tab.label} — processing in background` : tab.label}
+                      aria-label={isActive ? `${tab.label} (processing in background)` : tab.label}
                       tabIndex={isSelected ? 0 : -1}
-                      title={isActive ? `${tab.label} — working hard~ ( •̀_•́ )` : undefined}
+                      title={isActive ? `${tab.label}: working hard~ ( •̀_•́ )` : undefined}
                       onClick={() => navigateToView(tab.id, false)}
                       onKeyDown={(e) => handleTabKeyDown(e, index)}
                       className={`inline-flex items-center justify-center gap-1.5 border-t-2 px-3 py-2.5 font-mono text-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyber-cyan ${
