@@ -128,7 +128,7 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 border border-cyber-border bg-slate-50 px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-dark hover:bg-slate-100 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 border border-cyber-border bg-slate-50 px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-dark hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer"
             data-testid="cut-back-btn"
           >
             ← Back (• ◡•)
@@ -174,7 +174,7 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
                 <button
                   type="button"
                   onClick={handleSetStartFromVideo}
-                  className="border border-cyber-border bg-white px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/15 transition-colors cursor-pointer"
+                  className="border border-cyber-border bg-white px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-cyan hover:bg-cyber-cyan/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer"
                   data-testid="set-start-from-video-btn"
                 >
                   Set Start from current time ✦
@@ -182,7 +182,7 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
                 <button
                   type="button"
                   onClick={handleSetEndFromVideo}
-                  className="border border-cyber-border bg-white px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-pink hover:bg-cyber-pink/10 transition-colors cursor-pointer"
+                  className="border border-cyber-border bg-white px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-pink hover:bg-cyber-pink/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors cursor-pointer"
                   data-testid="set-end-from-video-btn"
                 >
                   Set End from current time ✦
@@ -283,7 +283,7 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
                 role="radio"
                 aria-checked={mode === 'FastCopy'}
                 onClick={() => setMode('FastCopy')}
-                className={`border px-3 py-2 text-left font-mono transition-colors cursor-pointer ${
+                className={`border px-3 py-2 text-left font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                   mode === 'FastCopy'
                     ? 'border-cyber-cyan bg-cyber-cyan/15 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -300,7 +300,7 @@ export default function CutPanel({ video, localFile = null, onBack, onCuttingCha
                 role="radio"
                 aria-checked={mode === 'FrameAccurate'}
                 onClick={() => setMode('FrameAccurate')}
-                className={`border px-3 py-2 text-left font-mono transition-colors cursor-pointer ${
+                className={`border px-3 py-2 text-left font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors cursor-pointer ${
                   mode === 'FrameAccurate'
                     ? 'border-cyber-pink bg-cyber-pink/10 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'

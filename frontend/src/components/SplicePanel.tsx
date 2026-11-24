@@ -144,7 +144,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 border border-cyber-border bg-slate-50 px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-dark hover:bg-slate-100 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 border border-cyber-border bg-slate-50 px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-dark hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer"
             data-testid="splice-back-btn"
           >
             ← Back (• ◡•)
@@ -186,7 +186,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                 role="radio"
                 aria-checked={mode === 'ByLength'}
                 onClick={() => handleModeChange('ByLength')}
-                className={`border px-4 py-2 text-sm font-mono transition-colors cursor-pointer ${
+                className={`border px-4 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                   mode === 'ByLength'
                     ? 'border-cyber-cyan bg-cyber-cyan/15 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -200,7 +200,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                 role="radio"
                 aria-checked={mode === 'BySize'}
                 onClick={() => handleModeChange('BySize')}
-                className={`border px-4 py-2 text-sm font-mono transition-colors cursor-pointer ${
+                className={`border px-4 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                   mode === 'BySize'
                     ? 'border-cyber-cyan bg-cyber-cyan/15 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -222,7 +222,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                 <button
                   type="button"
                   onClick={() => setLengthUnit('s')}
-                  className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-3 py-1 text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                     lengthUnit === 's'
                       ? 'border-cyber-cyan bg-cyber-cyan text-cyber-dark font-semibold'
                       : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -234,7 +234,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                 <button
                   type="button"
                   onClick={() => setLengthUnit('mm:ss')}
-                  className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-3 py-1 text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                     lengthUnit === 'mm:ss'
                       ? 'border-cyber-cyan bg-cyber-cyan text-cyber-dark font-semibold'
                       : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -249,7 +249,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                 <button
                   type="button"
                   onClick={() => setSizeUnit('MB')}
-                  className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-3 py-1 text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                     sizeUnit === 'MB'
                       ? 'border-cyber-cyan bg-cyber-cyan text-cyber-dark font-semibold'
                       : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -261,7 +261,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                 <button
                   type="button"
                   onClick={() => setSizeUnit('KB')}
-                  className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-3 py-1 text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                     sizeUnit === 'KB'
                       ? 'border-cyber-cyan bg-cyber-cyan text-cyber-dark font-semibold'
                       : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -273,7 +273,7 @@ export default function SplicePanel({ video, onBack, onSplicingChange }: SpliceP
                 <button
                   type="button"
                   onClick={() => setSizeUnit('B')}
-                  className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-3 py-1 text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                     sizeUnit === 'B'
                       ? 'border-cyber-cyan bg-cyber-cyan text-cyber-dark font-semibold'
                       : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'

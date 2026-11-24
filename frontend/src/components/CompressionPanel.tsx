@@ -159,7 +159,7 @@ export default function CompressionPanel({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-1.5 border border-cyber-border bg-slate-50 px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-dark hover:bg-slate-100 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 border border-cyber-border bg-slate-50 px-3 py-1 font-mono text-xs text-cyber-dark hover:border-cyber-dark hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer"
             data-testid="compression-back-btn"
           >
             ← Back (• ◡•)
@@ -204,7 +204,7 @@ export default function CompressionPanel({
                 role="radio"
                 aria-checked={format === 'Mp4'}
                 onClick={() => handleFormatChange('Mp4')}
-                className={`border px-3 py-2 text-left font-mono transition-colors cursor-pointer ${
+                className={`border px-3 py-2 text-left font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors cursor-pointer ${
                   format === 'Mp4'
                     ? 'border-cyber-cyan bg-cyber-cyan/15 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -221,7 +221,7 @@ export default function CompressionPanel({
                 role="radio"
                 aria-checked={format === 'Webm'}
                 onClick={() => handleFormatChange('Webm')}
-                className={`border px-3 py-2 text-left font-mono transition-colors cursor-pointer ${
+                className={`border px-3 py-2 text-left font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-pink transition-colors cursor-pointer ${
                   format === 'Webm'
                     ? 'border-cyber-pink bg-cyber-pink/10 text-cyber-dark font-bold'
                     : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
@@ -255,7 +255,7 @@ export default function CompressionPanel({
                     aria-checked={resolutionPreset === option.id}
                     disabled={disabled}
                     onClick={() => setResolutionPreset(option.id)}
-                    className={`group relative px-3 py-1 text-xs font-mono border transition-colors ${
+                    className={`group relative px-3 py-1 text-xs font-mono border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan transition-colors ${
                       resolutionPreset === option.id
                         ? 'border-cyber-cyan bg-cyber-cyan text-cyber-dark font-semibold'
                         : 'border-cyber-border bg-white text-slate-600 hover:border-slate-400'
